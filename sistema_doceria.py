@@ -198,7 +198,7 @@ painel_direito = tk.Frame(self.aba_caixa)
             messagebox.showerror("Erro", "Este CPF já está cadastrado para outro cliente.")
         finally:
             conn.close()
-    def atualizar_visualizacao_estoque(self):
+    d    def atualizar_visualizacao_estoque(self):
         for i in self.tab_estoque.get_children():
             self.tab_estoque.delete(i)
         conn = sqlite3.connect('doceria.db')
@@ -220,7 +220,7 @@ painel_direito = tk.Frame(self.aba_caixa)
 
     def abrir_janela_edicao(self):
         selecionado = self.tab_estoque.selection()
-        if not外 selecionado:
+        if not selecionado:
             messagebox.showwarning("Seleção Necessária", "Selecione um doce na tabela acima para editar.")
             return
             
@@ -335,4 +335,6 @@ painel_direito = tk.Frame(self.aba_caixa)
 if __name__ == "__main__":
     inicializar_banco()
     app = SistemaDoceria()
+    app.mainloop()
+
     app.mainloop()
