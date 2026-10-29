@@ -105,7 +105,7 @@ if aba_selecionada == "🧁 Balcão de Vendas":
                     
                     # Botão estilo App para incluir na Sacola
                     if st.button(f"➕ Adicionar", key=f"add_{row['codigo']}"):
-                        st.session_state.carrinho.append({"codigo": row['codigo'], "nome": row['nome'], "preco': row['preco']})
+                        st.session_state.carrinho.append({"codigo": row['codigo'], "nome": row['nome'], "preco": row['preco']})
                         st.rerun()
                         
                     st.markdown("</div>", unsafe_allow_html=True)
