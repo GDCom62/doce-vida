@@ -13,17 +13,25 @@ def inicializar_banco():
     conn = sqlite3.connect('doceria.db')
     cursor = conn.cursor()
     
-    # Almoxarifado atualizado com data de validade
+    # 1. Cria a tabela básica se ela não existir
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo_barras TEXT UNIQUE,
             nome TEXT NOT NULL,
             preco REAL NOT NULL,
-            estoque INTEGER NOT NULL DEFAULT 0,
-            validade TEXT
+            estoque INTEGER NOT NULL DEFAULT 0
         )
     ''')
+    
+    # 2. CORREÇÃO AUTOMÁTICA: Adiciona a coluna validade caso seu banco antigo não tenha ela
+    try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN validade TEXT")
+    except sqlite3.OperationalError:
+        # Se entrar aqui, significa que a coluna validade já existia, então ignora o erro
+        pass
+        
+    # 3. Cria as demais tabelas do sistema
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +40,13 @@ def inicializar_banco():
             telefone TEXT
         )
     ''')
+    
+    # Corrige tabela de clientes antiga se necessário (caso tenha erro de digitação anterior)
+    try:
+        cursor.execute("ALTER TABLE clientes ADD COLUMN telefone TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS funcionarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,9 +64,10 @@ def inicializar_banco():
         )
     ''')
     
-    # Dados Base de Teste (Validades dinâmicas para o teste de alertas)
+    # Insere os dados padrão apenas se a tabela estiver completamente vazia
     cursor.execute("SELECT COUNT(*) FROM produtos")
-    if cursor.fetchone() == 0:
+    if cursor.fetchone()[0] == 0:
+        from datetime import datetime, timedelta
         hoje = datetime.now()
         val_vencendo = (hoje + timedelta(days=3)).strftime('%Y-%m-%d')
         val_longa = (hoje + timedelta(days=60)).strftime('%Y-%m-%d')
