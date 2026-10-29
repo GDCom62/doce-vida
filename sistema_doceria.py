@@ -1,4 +1,207 @@
-painel_direito = tk.Frame(self.aba_caixa)
+import sqlite3
+import tkinter as tk
+from tkinter import ttk, messagebox
+import threading
+import time
+
+# =====================================================================
+# 1. BANCO DE DADOS
+# =====================================================================
+def inicializar_banco():
+    conn = sqlite3.connect('doceria.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_barras TEXT UNIQUE,
+            nome TEXT NOT NULL,
+            preco REAL NOT NULL,
+            estoque INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            cpf TEXT UNIQUE,
+            telefone TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS funcionarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT UNIQUE NOT NULL,
+            senha TEXT NOT NULL,
+            cargo TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_hora TEXT NOT NULL,
+            total REAL NOT NULL,
+            funcionario_usuario TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute("SELECT COUNT(*) FROM produtos")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany("INSERT INTO produtos (codigo_barras, nome, preco, estoque) VALUES (?, ?, ?, ?)", [
+            ('7891000101', 'Brigadeiro Gourmet', 4.50, 100),
+            ('7891000102', 'Bolo de Pote Ninho', 12.00, 30),
+            ('7891000103', 'Palha Italiana', 6.00, 50)
+        ])
+        cursor.executemany("INSERT INTO funcionarios (usuario, senha, cargo) VALUES (?, ?, ?)", [
+            ('admin', 'admin123', 'Gerente'),
+            ('caixa1', '1234', 'Operador')
+        ])
+        
+    conn.commit()
+    conn.close()
+
+# =====================================================================
+# 2. TELA DE LOGIN
+# =====================================================================
+class TelaLogin(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.title("Acesso ao Sistema")
+        self.geometry("350x250")
+        self.configure(bg="#FDF6F6")
+        self.resizable(False, False)
+        
+        self.transient(parent)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.ao_fechar)
+        
+        tk.Label(self, text="🧁 LOGIN DE ACESSO", font=("Helvetica", 14, "bold"), bg="#FDF6F6", fg="#5D4037").pack(pady=15)
+        
+        tk.Label(self, text="Usuário:", bg="#FDF6F6", font=("Helvetica", 10)).pack(anchor="w", padx=40)
+        self.ent_user = tk.Entry(self, font=("Helvetica", 11), width=25)
+        self.ent_user.pack(pady=2)
+        self.ent_user.insert(0, "caixa1")
+        
+        tk.Label(self, text="Senha:", bg="#FDF6F6", font=("Helvetica", 10)).pack(anchor="w", padx=40)
+        self.ent_senha = tk.Entry(self, font=("Helvetica", 11), width=25, show="*")
+        self.ent_senha.pack(pady=2)
+        self.ent_senha.insert(0, "1234")
+        
+        btn_entrar = tk.Button(self, text="Entrar no Sistema", bg="#C79292", fg="white", font=("Helvetica", 11, "bold"), relief="flat", width=20, command=self.autenticar)
+        btn_entrar.pack(pady=15)
+        
+    def autenticar(self):
+        usuario = self.ent_user.get().strip()
+        senha = self.ent_senha.get().strip()
+        
+        conn = sqlite3.connect('doceria.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT cargo FROM funcionarios WHERE usuario = ? AND senha = ?", (usuario, senha))
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            cargo = resultado[0]
+            self.parent.definir_usuario_ativo(usuario, cargo)
+            self.destroy()
+        else:
+            messagebox.showerror("Acesso Negado", "Usuário ou senha incorretos!")
+
+    def ao_fechar(self):
+        self.parent.destroy()
+
+# =====================================================================
+# 3. INTERFACE PRINCIPAL
+# =====================================================================
+class SistemaDoceria(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("CandySystem Pro v1.2 - Frente de Caixa e Gestão")
+        self.geometry("1100x680")
+        self.configure(bg="#FDF6F6")
+        
+        self.carrinho = []
+        self.usuario_atual = None
+        self.cargo_atual = None
+        
+        self.configurar_estilos()
+        self.criar_widgets()
+        
+        self.withdraw()
+        self.after(100, self.mostrar_login)
+
+    def mostrar_login(self):
+        TelaLogin(self)
+
+    def definir_usuario_ativo(self, usuario, cargo):
+        self.usuario_atual = usuario
+        self.cargo_atual = cargo
+        self.deiconify()
+        self.lbl_usuario_logado.config(text=f"👤 Operador: {self.usuario_atual.upper()} ({self.cargo_atual})")
+        self.atualizar_visualizacao_estoque()
+        self.atualizar_visualizacao_clientes()
+
+    def configurar_estilos(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TNotebook", background="#FDF6F6", tabposition="nw")
+        style.configure("TNotebook.Tab", background="#E8D3D3", foreground="#5D4037", font=("Helvetica", 10, "bold"), padding=6)
+        style.map("TNotebook.Tab", background=[("selected", "#C79292")], foreground=[("selected", "white")])
+        style.configure("Treeview", font=("Helvetica", 11), rowheight=25, background="white")
+        style.configure("Treeview.Heading", font=("Helvetica", 11, "bold"), background="#C79292", foreground="white")
+        
+    def criar_widgets(self):
+        barra_status = tk.Frame(self, bg="#E8D3D3", height=30)
+        barra_status.pack(fill="x", side="top")
+        self.lbl_usuario_logado = tk.Label(barra_status, text="👤 Operador: Nenhum", font=("Helvetica", 10, "bold"), bg="#E8D3D3", fg="#5D4037")
+        self.lbl_usuario_logado.pack(side="left", padx=15, pady=5)
+
+        self.abas = ttk.Notebook(self)
+        self.abas.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        self.aba_caixa = ttk.Frame(self.abas)
+        self.aba_adm = ttk.Frame(self.abas)
+        
+        self.abas.add(self.aba_caixa, text=" 🛒 Frente de Caixa (PDV) ")
+        self.abas.add(self.aba_adm, text=" 📊 Painel Administrativo / Almoxarifado ")
+        
+        self.montar_aba_caixa()
+        self.montar_aba_adm()
+        
+        self.abas.bind("<<NotebookTabChanged>>", self.verificar_permissao_aba)
+
+    def verificar_permissao_aba(self, event):
+        aba_selecionada = self.abas.index(self.abas.select())
+        if aba_selecionada == 1 and self.cargo_atual != "Gerente":
+            self.abas.select(0)
+            messagebox.showwarning("Acesso Restrito", "Apenas funcionários com cargo de 'Gerente' possuem acesso!")
+
+    def montar_aba_caixa(self):
+        painel_esquerdo = tk.Frame(self.aba_caixa, bg="#FDF6F6", width=400)
+        painel_esquerdo.pack(side="left", fill="y", padx=10, pady=10)
+        
+        tk.Label(painel_esquerdo, text="ENTRADA DE PRODUTO", font=("Helvetica", 12, "bold"), bg="#FDF6F6", fg="#5D4037").pack(anchor="w", pady=5)
+        
+        tk.Label(painel_esquerdo, text="Código, QR Code ou Digitação Manual:", bg="#FDF6F6", fg="#7D5A50").pack(anchor="w")
+        self.txt_codigo = tk.Entry(painel_esquerdo, font=("Helvetica", 14), width=25)
+        self.txt_codigo.pack(fill="x", pady=5)
+        self.txt_codigo.bind("<Return>", self.adicionar_por_codigo)
+        
+        self.btn_voz = tk.Button(painel_esquerdo, text="🎙️ Ativar Comando de Voz", font=("Helvetica", 11, "bold"), bg="#E1BEE7", fg="#4A148C", relief="flat", command=self.escutar_comando_voz)
+        self.btn_voz.pack(fill="x", pady=15)
+        
+        tk.Label(painel_esquerdo, text="TOTAL DO PEDIDO:", font=("Helvetica", 12, "bold"), bg="#FDF6F6", fg="#5D4037").pack(anchor="w", pady=20)
+        self.lbl_total = tk.Label(painel_esquerdo, text="R$ 0,00", font=("Helvetica", 28, "bold"), bg="#FDF6F6", fg="#D32F2F")
+        self.lbl_total.pack(anchor="w")
+        
+        btn_finalizar = tk.Button(painel_esquerdo, text="💸 Finalizar Venda", font=("Helvetica", 14, "bold"), bg="#4CAF50", fg="white", relief="flat", command=self.finalizar_venda)
+        btn_finalizar.pack(fill="x", side="bottom", pady=10)
+        
+        painel_direito = tk.Frame(self.aba_caixa)
         painel_direito.pack(side="right", fill="both", expand=True, padx=10, pady=10)
         
         self.tab_carrinho = ttk.Treeview(painel_direito, columns=("Cod", "Prod", "Preco", "Qtd", "Total"), show="headings")
@@ -9,11 +212,8 @@ painel_direito = tk.Frame(self.aba_caixa)
         self.tab_carrinho.heading("Total", text="Total")
         self.tab_carrinho.column("Prod", width=250)
         self.tab_carrinho.pack(fill="both", expand=True)
-    # -----------------------------------------------------------------
-    # PAINEL ADMINISTRATIVO (Almoxarifado e Clientes)
-    # -----------------------------------------------------------------
+
     def montar_aba_adm(self):
-        # Sub-abas dentro do painel administrativo
         abas_adm = ttk.Notebook(self.aba_adm)
         abas_adm.pack(fill="both", expand=True)
         
@@ -27,7 +227,6 @@ painel_direito = tk.Frame(self.aba_caixa)
         self.montar_aba_clientes()
         
     def montar_aba_estoque(self):
-        # Tabela do Estoque
         self.tab_estoque = ttk.Treeview(self.aba_estoque, columns=("ID", "Cod", "Nome", "Preco", "Estoque"), show="headings")
         self.tab_estoque.heading("ID", text="ID")
         self.tab_estoque.heading("Cod", text="Cód. Barras / QR")
@@ -61,7 +260,6 @@ painel_direito = tk.Frame(self.aba_caixa)
         btn_atualizar.grid(row=0, column=4, padx=5)
 
     def montar_aba_clientes(self):
-        # Formulário para Cadastrar Clientes
         frame_cad_cli = tk.LabelFrame(self.aba_clientes, text=" Novo Cliente ", font=("Helvetica", 10, "bold"), padx=10, pady=10, bg="#FDF6F6")
         frame_cad_cli.pack(fill="x", padx=10, pady=10)
         
@@ -80,7 +278,6 @@ painel_direito = tk.Frame(self.aba_caixa)
         btn_salvar_cli = tk.Button(frame_cad_cli, text="💾 Salvar Cliente", bg="#4CAF50", fg="white", font=("Helvetica", 9, "bold"), relief="flat", command=self.salvar_cliente)
         btn_salvar_cli.grid(row=0, column=6, padx=15)
         
-        # Tabela de Clientes Cadastrados
         self.tab_clientes = ttk.Treeview(self.aba_clientes, columns=("ID", "Nome", "CPF", "Telefone"), show="headings")
         self.tab_clientes.heading("ID", text="ID")
         self.tab_clientes.heading("Nome", text="Nome Completo")
@@ -88,9 +285,6 @@ painel_direito = tk.Frame(self.aba_caixa)
         self.tab_clientes.heading("Telefone", text="Telefone")
         self.tab_clientes.column("ID", width=60, anchor="center")
         self.tab_clientes.pack(fill="both", expand=True, padx=10, pady=5)
-    # =====================================================================
-    # 4. REGRAS DO MOVIMENTO E DA INTERFACE
-    # =====================================================================
     def adicionar_por_codigo(self, event=None):
         codigo = self.txt_codigo.get().strip()
         if not codigo: return
@@ -144,7 +338,7 @@ painel_direito = tk.Frame(self.aba_caixa)
                            (data_atual, total_venda, self.usuario_atual))
             
             conn.commit()
-            messagebox.showinfo("Sucesso", f"Venda gravada por {self.usuario_atual.upper()}!\nEstoque atualizado.")
+            messagebox.showinfo("Sucesso", f"Venda gravada por {self.usuario_atual.upper()}!\nEstoque updated.")
             self.carrinho = []
             self.atualizar_grade_carrinho()
             self.atualizar_visualizacao_estoque()
@@ -198,7 +392,7 @@ painel_direito = tk.Frame(self.aba_caixa)
             messagebox.showerror("Erro", "Este CPF já está cadastrado para outro cliente.")
         finally:
             conn.close()
-    d    def atualizar_visualizacao_estoque(self):
+    def atualizar_visualizacao_estoque(self):
         for i in self.tab_estoque.get_children():
             self.tab_estoque.delete(i)
         conn = sqlite3.connect('doceria.db')
@@ -295,26 +489,31 @@ painel_direito = tk.Frame(self.aba_caixa)
             conn.close()
             self.atualizar_visualizacao_estoque()
 
-    # -----------------------------------------------------------------
-    # COMANDO DE VOZ INTEGRADO
-    # -----------------------------------------------------------------
     def escutar_comando_voz(self):
         def thread_voz():
             self.btn_voz.config(text="🎙️ Ouvindo Microfone...", bg="#FFCDD2")
             
-            # --- INTEGRAÇÃO COM SPEECH RECOGNITION REAL ---
-            # Descomente removendo as aspas triplas abaixo caso queira usar capturando a voz do microfone
+            # --- CASO QUEIRA ATIVAR O MICROFONE REAL, RETIRE AS ASPAS TRIPLAS ABAIXO ---
             """
             import speech_recognition as sr
             r = sr.Recognizer()
             with sr.Microphone() as source:
                 try:
+                    r.adjust_for_ambient_noise(source, duration=1)
                     audio = r.listen(source, timeout=4)
                     texto_ouvido = r.recognize_google(audio, language='pt-BR').lower()
                     
                     if "brigadeiro" in texto_ouvido:
                         self.txt_codigo.delete(0, tk.END)
                         self.txt_codigo.insert(0, "7891000101")
+                        self.adicionar_por_codigo()
+                    elif "bolo" in texto_ouvido or "pote" in texto_ouvido:
+                        self.txt_codigo.delete(0, tk.END)
+                        self.txt_codigo.insert(0, "7891000102")
+                        self.adicionar_por_codigo()
+                    elif "palha" in texto_ouvido or "italiana" in texto_ouvido:
+                        self.txt_codigo.delete(0, tk.END)
+                        self.txt_codigo.insert(0, "7891000103")
                         self.adicionar_por_codigo()
                 except Exception as e:
                     print("Erro no áudio:", e)
@@ -335,6 +534,4 @@ painel_direito = tk.Frame(self.aba_caixa)
 if __name__ == "__main__":
     inicializar_banco()
     app = SistemaDoceria()
-    app.mainloop()
-
     app.mainloop()
