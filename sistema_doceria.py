@@ -97,7 +97,16 @@ if 'carrinho' not in st.session_state:
 # =====================================================================
 # LOGO ESTILIZADO EM HTML/CSS (Para não depender de imagem local)
 # =====================================================================
+import os
+
+# =====================================================================
+# LOGO DA EMPRESA (Com suporte a Imagem Física e Descritivo)
+# =====================================================================
 def exibir_logo():
+    # Se a imagem da empresa existir na pasta do projeto, ela é exibida centralizada
+    if os.path.exists("logo_empresa.png"):
+        st.image("logo_empresa.png", width=120)
+        
     st.markdown("""
         <div style='text-align: center; margin-bottom: 20px;'>
             <h1 style='font-family: "Pacifico", cursive, sans-serif; color: #D32F2F; font-size: 50px; margin-bottom: 0px;'>🍒 Doce Vida</h1>
@@ -390,10 +399,10 @@ if st.session_state.cargo_logado == "Gerente":
             st.dataframe(equipe, column_config={"0": "ID", "1": "Nome de Usuário", "2": "Nível"}, use_container_width=True)
 
 # =====================================================================
-# MENU LATERAL (Sidebar - Comandos Rápidos e Voz)
+# MENU LATERAL (Sidebar - Comandos Rápidos, Voz e Logo Desenvolvedor)
 # =====================================================================
 with st.sidebar:
-    st.markdown("### 🎙 shrink Comandos Rápidos de Voz")
+    st.markdown("### 🎙️ Comandos Rápidos de Voz")
     teste_voz = st.text_input("Fale ou digite o comando de voz aqui:")
     
     if st.button("🎙️ Processar Áudio"):
@@ -410,9 +419,9 @@ with st.sidebar:
                 cursor.execute("SELECT codigo_barras, nome, preco, estoque FROM produtos WHERE codigo_barras = ?", (cod_v,))
                 p = cursor.fetchone()
                 conn.close()
-                if p and p[3] > 0:
-                    st.session_state.carrinho.append({'codigo': p[0], 'nome': p[1], 'preco': p[2], 'qtd': 1})
-                    st.success(f"Adicionado via voz: {p[1]}")
+                if p and p[4] > 0:
+                    st.session_state.carrinho.append({'codigo': p[1], 'nome': p[2], 'preco': p[3], 'qtd': 1})
+                    st.success(f"Adicionado via voz: {p[2]}")
                     time.sleep(0.5)
                     st.rerun()
         else:
@@ -427,3 +436,14 @@ with st.sidebar:
         st.session_state.cargo_logado = None
         st.session_state.carrinho = []
         st.rerun()
+
+    # Espaçador dinâmico para empurrar o logo do desenvolvedor para o rodapé do menu
+    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Exibe o Logo do Desenvolvedor de forma discreta e elegante no final do menu lateral
+    if os.path.exists("logo_desenvolvedor.png"):
+        st.image("logo_desenvolvedor.png", use_container_width=True)
+    else:
+        st.caption("💻 Desenvolvido por: TechInova Sistemas")
+
