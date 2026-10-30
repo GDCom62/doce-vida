@@ -110,7 +110,7 @@ def exibir_logo():
     st.markdown("""
         <div style='text-align: center; margin-bottom: 20px;'>
             <h1 style='font-family: "Pacifico", cursive, sans-serif; color: #D32F2F; font-size: 50px; margin-bottom: 0px;'>🍒 Doces Vida</h1>
-            <p style='font-family: "Helvetica", sans-serif; color: #7D5A50; font-size: 14px; letter-spacing: 2px;'>CONFEITARIA & DOCERIA ARTESANAL</p>
+            <p style='font-family: "Helvetica", sans-serif; color: #7D5A50; font-size: 14px; letter-spacing: 2px;'> DOCERIA </p>
         </div>
     """, unsafe_allow_html=True)
 
