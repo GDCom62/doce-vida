@@ -160,59 +160,128 @@ abas = st.tabs(Abas_Principais)
 # -----------------------------------------------------------------
 # FRENTE DE CAIXA (PDV)
 # -----------------------------------------------------------------
+# -----------------------------------------------------------------
+# FRENTE DE CAIXA (PDV) - ATUALIZADO COM CATÁLOGO COMPLETO
+# -----------------------------------------------------------------
 with abas[0]:
-    col_esq, col_dir = st.columns([1, 1])
+    # Divisão da tela do caixa em duas colunas principais
+    col_esq, col_dir = st.columns([1.1, 0.9])
     
     with col_esq:
-        st.subheader("Entrada de Itens")
-        codigo_digitado = st.text_input("Bipar Código de Barras, QR ou Manual:", key="pdv_codigo")
+        st.subheader("🛒 Registro de Venda")
+        
+        # Entrada manual ou por leitor de código de barras
+        codigo_digitado = st.text_input("Bipar Código de Barras, QR ou digitar manualmente:", key="pdv_codigo").strip()
         
         if codigo_digitado:
             conn = sqlite3.connect('doceria.db')
             cursor = conn.cursor()
-            cursor.execute("SELECT codigo_barras, nome, preco, estoque FROM produtos WHERE codigo_barras = ?", (codigo_digitado,))
+            # Busca pelo código exato ou aproximação pelo nome (busca manual na falha do código)
+            cursor.execute("SELECT codigo_barras, nome, preco, estoque FROM produtos WHERE codigo_barras = ? OR nome LIKE ?", 
+                           (codigo_digitado, f"%{codigo_digitado}%"))
             produto = cursor.fetchone()
             conn.close()
             
-            if produto:
-                if produto[3] > 0:
-                    st.session_state.carrinho.append({'codigo': produto[0], 'nome': produto[1], 'preco': produto[2], 'qtd': 1})
-                    st.toast(f"Adicionado: {produto[1]}", icon="✅")
+            if p := produto:
+                if p[3] > 0:
+                    st.session_state.carrinho.append({'codigo': p[0], 'nome': p[1], 'preco': p[2], 'qtd': 1})
+                    st.toast(f"Adicionado: {p[1]}", icon="✅")
+                    time.sleep(0.2)
+                    st.rerun()
                 else:
-                    st.error(f"Estoque esgotado para: {produto[1]}")
+                    st.error(f"Estoque esgotado para: {p[1]}")
             else:
                 st.error("Produto não localizado no almoxarifado.")
         
-        total_venda = sum(item['preco'] * item['qtd'] for item in st.session_state.carrinho)
-        st.markdown(f"## Total: <span style='color: #D32F2F;'>R$ {total_venda:.2f}</span>", unsafe_allow_html=True)
-        
-        if st.button("💸 Concluir Venda Balcão", type="primary"):
-            if st.session_state.carrinho:
-                conn = sqlite3.connect('doceria.db')
-                cursor = conn.cursor()
-                for item in st.session_state.carrinho:
-                    cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE codigo_barras = ?", (item['qtd'], item['codigo']))
-                
-                data_atual = time.strftime('%Y-%m-%d %H:%M:%S')
-                cursor.execute("INSERT INTO vendas (data_hora, total, funcionario_usuario) VALUES (?, ?, ?)", 
-                               (data_atual, total_venda, st.session_state.usuario_logado))
-                conn.commit()
-                conn.close()
-                st.session_state.carrinho = []
-                st.success("Venda registrada!")
-                st.rerun()
-            else:
-                st.warning("O carrinho está vazio.")
-                
-    with col_dir:
-        st.subheader("Itens da Venda")
+        # Exibição dos Itens Atuais do Carrinho
+        st.markdown("#### Itens na Venda Atual")
         if st.session_state.carrinho:
-            st.table(st.session_state.carrinho)
-            if st.button("🗑️ Cancelar Tudo"):
+            # Transforma o carrinho em DataFrame para exibição limpa
+            import pandas as pd
+            df_car = pd.DataFrame(st.session_state.carrinho)
+            df_car['Total'] = df_car['preco'] * df_car['qtd']
+            df_car.columns = ["Código", "Doce / Produto", "Preço Unit.", "Qtd", "Total Item"]
+            st.dataframe(df_car, use_container_width=True, hide_index=True)
+            
+            # Botão para limpar o carrinho se desistir da venda
+            if st.button("🗑️ Cancelar / Limpar Carrinho", type="secondary"):
                 st.session_state.carrinho = []
                 st.rerun()
         else:
-            st.info("Aguardando inserção de produtos...")
+            st.info("Aguardando inserção de produtos... Use o leitor, digite ou clique ao lado.")
+
+        # Cálculo do Valor Total e Finalização
+        total_venda = sum(item['preco'] * item['qtd'] for item in st.session_state.carrinho)
+        st.markdown(f"## Total: <span style='color: #D32F2F;'>R$ {total_venda:.2f}</span>", unsafe_allow_html=True)
+        
+        if st.button("💸 Concluir Venda Balcão", type="primary", use_container_width=True):
+            if st.session_state.carrinho:
+                conn = sqlite3.connect('doceria.db')
+                cursor = conn.cursor()
+                
+                sucesso_venda = True
+                for item in st.session_state.carrinho:
+                    # Verifica o estoque real antes de abater
+                    cursor.execute("SELECT estoque FROM produtos WHERE codigo_barras = ?", (item['codigo'],))
+                    res_est = cursor.fetchone()
+                    
+                    if res_est and res_est[0] >= item['qtd']:
+                        cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE codigo_barras = ?", 
+                                       (item['qtd'], item['codigo']))
+                    else:
+                        st.error(f"Estoque insuficiente para {item['nome']}. Venda cancelada.")
+                        sucesso_venda = False
+                        break
+                
+                if sucesso_venda:
+                    data_atual = time.strftime('%Y-%m-%d %H:%M:%S')
+                    cursor.execute("INSERT INTO vendas (data_hora, total, funcionario_usuario) VALUES (?, ?, ?)", 
+                                   (data_atual, total_venda, st.session_state.usuario_logado))
+                    conn.commit()
+                    st.session_state.carrinho = []
+                    st.success("Venda registrada e estoque atualizado!")
+                    time.sleep(1)
+                    st.rerun()
+                conn.close()
+            else:
+                st.warning("O carrinho está vazio.")
+
+    # =====================================================================
+    # COLUNA DA DIREITA: CATÁLOGO COMPLETO DE PRODUTOS PARA O CAIXA
+    # =====================================================================
+    with col_dir:
+        st.subheader("🍬 Catálogo Prático do Caixa")
+        st.caption("Clique no botão do doce para adicioná-lo instantaneamente ao carrinho:")
+        
+        # Busca em tempo real todos os doces cadastrados no Almoxarifado
+        conn = sqlite3.connect('doceria.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT codigo_barras, nome, preco, estoque FROM produtos")
+        todos_produtos = cursor.fetchall()
+        conn.close()
+        
+        if todos_produtos:
+            for p_cod, p_nome, p_preco, p_est in todos_produtos:
+                # Cria um container visual bonito para cada doce do catálogo
+                with st.container(border=True):
+                    col_c1, col_c2 = st.columns([2, 1])
+                    
+                    with col_c1:
+                        st.markdown(f"**{p_nome}**")
+                        st.markdown(f"<span style='color: #7d5a50; font-size: 13px;'>Cód: {p_cod} | Estoque: {p_est} un.</span>", unsafe_allow_html=True)
+                    
+                    with col_c2:
+                        # Se não houver estoque, o botão fica desabilitado implicitamente ou avisa o erro
+                        if st.button(f"➕ R$ {p_preco:.2f}", key=f"cat_{p_cod}", use_container_width=True):
+                            if p_est > 0:
+                                st.session_state.carrinho.append({'codigo': p_cod, 'nome': p_nome, 'preco': p_preco, 'qtd': 1})
+                                st.toast(f"Adicionado: {p_nome}", icon="🧁")
+                                time.sleep(0.2)
+                                st.rerun()
+                            else:
+                                st.error("Sem estoque!")
+        else:
+            st.info("Nenhum doce cadastrado no almoxarifado ainda. Vá na aba de Estoque para cadastrar os primeiros produtos.")
 
 # -----------------------------------------------------------------
 # ALMOXARIFADO / ESTOQUE COM VERIFICAÇÃO DE VALIDADE E CRUDS
@@ -445,5 +514,5 @@ with st.sidebar:
     if os.path.exists("logo_desenvolvedor.png"):
         st.image("logo_desenvolvedor.png", use_container_width=True)
     else:
-        st.caption("💻 Desenvolvido por: TechInova Sistemas")
+        st.caption("💻 Desenvolvido por: DG.Com")
 
