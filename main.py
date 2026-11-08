@@ -1,7 +1,21 @@
-import streamlit as st
+import os
 import sqlite3
+import streamlit as st
 import pandas as pd
 from datetime import datetime
+
+# Configuração da página Web do Streamlit
+st.set_page_config(page_title="SweetManager Independente", page_icon="🍭", layout="wide")
+
+# ==============================================================================
+# CONFIGURAÇÃO DO DIRETÓRIO DO BANCO DE DADOS
+# ==============================================================================
+# Cria a pasta 'banco_dados' no computador principal se ela não existir
+if not os.path.exists("banco_dados"):
+    os.makedirs("banco_dados")
+
+# Define o caminho definitivo para o arquivo do banco
+DB_NAME = os.path.join("banco_dados", "estoque_loja_independente.db")
 
 # Configuração da página Web do Streamlit
 st.set_page_config(page_title="SweetManager Independente", page_icon="🍭", layout="wide")
