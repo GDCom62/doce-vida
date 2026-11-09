@@ -225,8 +225,8 @@ if menu == "🛒 Frente de Caixa (PDV)":
         with col_res1:
             st.write(f"**Valor Recebido:** R$ {total_recebido:.2f}")
         with col_res2:
-        if valor_restante > 0:
-            st.markdown(f"<span style='color:red; font-weight:bold;'>Valor Restante: R$ {valor_restante:.2f}</span>", unsafe_allow_html=True)
+            if valor_restante > 0:
+                st.markdown(f"<span style='color:red; font-weight:bold;'>Valor Restante: R$ {valor_restante:.2f}</span>", unsafe_allow_html=True)
         else:
             st.markdown("<span style='color:green; font-weight:bold;'>Pagamento Completo</span>", unsafe_allow_html=True)
         with col_res3:
