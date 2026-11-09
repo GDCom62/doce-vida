@@ -1,13 +1,19 @@
-import streamlit as st
+import os
 import sqlite3
+import streamlit as st
 import pandas as pd
 from datetime import datetime
 
 # Configuração da página Web do Streamlit
-st.set_page_config(page_title="SweetManager Independente", page_icon="🍭", layout="wide")
+st.set_page_config(page_title="SweetManager PDV Pro", page_icon="🍭", layout="wide")
 
-# Banco de dados exclusivo e isolado para este diretório
-DB_NAME = "estoque_loja_independente.db"
+# ==============================================================================
+# CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS
+# ==============================================================================
+if not os.path.exists("banco_dados"):
+    os.makedirs("banco_dados")
+
+DB_NAME = os.path.join("banco_dados", "estoque_loja_independente.db")
 
 def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
@@ -48,6 +54,8 @@ def inicializar_banco_isolado():
     CREATE TABLE IF NOT EXISTS vendas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         data_hora TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        desconto_total REAL NOT NULL,
         total REAL NOT NULL,
         forma_pagamento TEXT
     )""")
@@ -69,7 +77,7 @@ def inicializar_banco_isolado():
     conn.commit()
     conn.close()
 
-# Inicializa as tabelas locais
+# Inicializa as tabelas locais no caminho correto
 inicializar_banco_isolado()
 
 # Gerenciamento de estado de login na sessão web
@@ -78,7 +86,7 @@ if "autenticado" not in st.session_state:
 if "carrinho_novo" not in st.session_state:
     st.session_state.carrinho_novo = []
 
-# --- TELA DE LOGIN PROFISSIONAL ---
+# --- TELA DE LOGIN ---
 if not st.session_state.autenticado:
     st.markdown("<h2 style='text-align: center;'>🍭 SweetManager Pro - Acesso Restrito</h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
@@ -111,95 +119,170 @@ st.sidebar.title("🍭 Menu Administrativo")
 st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_cargo})")
 st.sidebar.markdown("---")
 
-# Abas de navegação profissional do Streamlit
-menu = st.sidebar.radio("Navegar por Módulos:", ["🛒 Frente de Caixa (PDV)", "📦 Almoxarifado / Estoque", "👥 Cadastros (Clientes/Equipe)"])
+# CORREÇÃO: Inclusão do módulo de Relatórios de Vendas para seleção no Menu
+menu = st.sidebar.radio("Navegar por Módulos:", [
+    "🛒 Frente de Caixa (PDV)", 
+    "📦 Almoxarifado / Estoque", 
+    "👥 Cadastros (Clientes/Equipe)",
+    "📊 Relatórios de Vendas"
+])
 
 if st.sidebar.button("🚪 Desconectar Sistema", type="secondary"):
     st.session_state.autenticado = False
     st.rerun()
 
-# ==================== MÓDULO 1: PDV ====================
+# ==================== MÓDULO 1: PDV (ESTILO WAYBIT) ====================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.header("Balcão de Atendimento - Vendas Automatizadas")
+    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Dominus - PDV</h1>", unsafe_allow_html=True)
     
-    col_pdv1, col_pdv2 = st.columns([2, 1.2])
+    # Layout estruturado com base na imagem do monitor
+    col_principal, col_botoes = st.columns([3.2, 1.0])
     
-    with col_pdv1:
-        st.subheader("Entrada de Itens")
+    with col_principal:
+        st.markdown("<div style='background-color:#f5f5f5; padding:10px; border-radius:5px; text-align:center; font-weight:bold; font-size:24px; border:1px solid #ccc; margin-bottom:15px;'>NÃO IDENTIFICADO</div>", unsafe_allow_html=True)
         
-        # O campo de texto captura leitores de código de barras físicos que dão "Enter" automático
-        input_produto = st.text_input("Bipe o código de barras/QR Code ou digite o código/nome manualmente:", key="input_autom")
-        
-        # Funcionalidade por Voz (Simulada via entrada de comando do atendente ou integração nativa de texto)
-        voz_check = st.checkbox("💡 Ativar assistente de voz simulado (Inserir comando via texto de voz)")
-        if voz_check:
-            comando_voz = st.text_input("Ex: 'adicionar brigadeiro' ou 'remover bolo':").lower()
-            if "adicionar" in comando_voz:
-                input_produto = comando_voz.replace("adicionar", "").strip()
-        
+        # Área superior de busca e especificações do item atual
+        col_busca1, col_busca2 = st.columns([3, 1])
+        with col_busca1:
+            input_produto = st.text_input("Busca de produtos pelo nome ou código (Código de barras/QR Code):", key="search_pdv")
+        with col_busca2:
+            qtd_item = st.number_input("QUANTIDADE", min_value=1, value=1, step=1)
+            desconto_item = st.number_input("Desconto por item (R$)", min_value=0.0, value=0.0, step=0.5)
+
+        # Processamento da inserção de produto
         if input_produto:
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            # Busca flexível: por código de barras exato ou por nome parcial do doce
             cursor.execute("SELECT codigo_barras, nome, preco_venda, estoque_atual FROM produtos WHERE codigo_barras = ? OR nome LIKE ?", (input_produto, f"%{input_produto}%"))
             prod_achado = cursor.fetchone()
             conn.close()
             
             if prod_achado:
-                if prod_achado[3] > 0:
+                if prod_achado[3] >= qtd_item:
+                    v_unit = prod_achado[2]
+                    v_tot = (v_unit * qtd_item) - desconto_item
+                    
+                    # Evita valores negativos por desconto abusivo
+                    if v_tot < 0: 
+                        v_tot = 0.0
+                    
                     st.session_state.carrinho_novo.append({
-                        "Código": prod_achado[0],
-                        "Produto": prod_achado[1],
-                        "Preço (R$)": prod_achado[2],
-                        "Qtd": 1
+                        "Seq": len(st.session_state.carrinho_novo) + 1,
+                        "Cód. Produto": prod_achado[0],
+                        "Descrição do Produto": prod_achado[1],
+                        "Quantidade": qtd_item,
+                        "Valor Unitário": v_unit,
+                        "Valor Desconto": desconto_item,
+                        "Valor Total": v_tot
                     })
-                    st.toast(f"🍭 {prod_achado[1]} adicionado ao carrinho!", icon="✅")
+                    st.toast(f"🍭 {prod_achado[1]} adicionado!", icon="✅")
                 else:
-                    st.warning(f"Atenção: '{prod_achado[1]}' está zerado no Almoxarifado!")
+                    st.warning(f"Atenção: Estoque insuficiente de '{prod_achado[1]}' (Disponível: {prod_achado[3]}).")
             else:
                 st.error("Produto não localizado no Almoxarifado.")
         
-        st.write("### Itens Selecionados no Carrinho")
+        # Grid central de mercadorias lançadas
+        st.write("### Itens no Cupom Atual")
         if st.session_state.carrinho_novo:
             df_cart = pd.DataFrame(st.session_state.carrinho_novo)
             st.dataframe(df_cart, use_container_width=True, hide_index=True)
-            if st.button("🗑️ Esvaziar Carrinho Atual"):
-                st.session_state.carrinho_novo = []
-                st.rerun()
         else:
-            st.info("Aguardando leitura de mercadorias no balcão...")
+            st.info("Aguardando inserção de mercadorias no leitor ou campo de busca...")
 
-    with col_pdv2:
-        st.subheader("Fechamento do Cupom")
-        total_pago = sum(item["Preço (R$)"] * item["Qtd"] for item in st.session_state.carrinho_novo)
-        st.metric(label="VALOR TOTAL", value=f"R$ {total_pago:.2f}")
+        # Cálculos de Subtotal e Descontos Totais
+        subtotal = sum(item["Quantidade"] * item["Valor Unitário"] for item in st.session_state.carrinho_novo)
+        descontos_itens = sum(item["Valor Desconto"] for item in st.session_state.carrinho_novo)
         
-        meio_pagto = st.selectbox("Forma de Recebimento:", ["Pix (Exibe QR Code)", "Dinheiro no Caixa", "Cartão de Crédito/Débito"])
+        st.markdown("---")
+        col_calc1, col_calc2, col_calc3 = st.columns(3)
+        with col_calc1:
+            st.metric("SUBTOTAL (R$)", f"{subtotal:.2f}")
+        with col_calc2:
+            desc_total_venda = st.number_input("Desconto no total da venda (R$)", min_value=0.0, value=0.0, step=1.0)
+        with col_calc3:
+            total_compra = subtotal - descontos_itens - desc_total_venda
+            if total_compra < 0: 
+                total_compra = 0.0
+            st.metric("VALOR TOTAL DA COMPRA (R$)", f"{total_compra:.2f}", delta="- Descontos Aplicados")
+
+        # Seção 1.2: Formas de Pagamento Dinâmicas e Múltiplas
+        st.markdown("### 💳 1.2 Formas de Pagamento")
+        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+        with col_p1:
+            val_dinheiro = st.number_input("Valor em Dinheiro", min_value=0.0, value=0.0)
+        with col_p2:
+            val_pix = st.number_input("Valor no Pix", min_value=0.0, value=0.0)
+        with col_p3:
+            val_debito = st.number_input("Valor Cartão Débito", min_value=0.0, value=0.0)
+        with col_p4:
+            val_credito = st.number_input("Valor Cartão Crédito", min_value=0.0, value=0.0)
+
+        total_recebido = val_dinheiro + val_pix + val_debito + val_credito
+        valor_restante = total_compra - total_recebido
+        troco = total_recebido - total_compra if total_recebido > total_compra else 0.0
+
+        col_res1, col_res2, col_res3 = st.columns(3)
+        with col_res1:
+            st.write(f"**Valor Recebido:** R$ {total_recebido:.2f}")
+        with col_res2:
+                        if valor_restante > 0:
+                st.markdown(f"<span style='color:red; font-weight:bold;'>Valor Restante: R$ {valor_restante:.2f}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown("<span style='color:green; font-weight:bold;'>Pagamento Completo</span>", unsafe_allow_html=True)
+        with col_res3:
+            st.write(f"**Troco Calculado:** R$ {troco:.2f}")
+
+    with col_botoes:
+        st.markdown("<div style='background-color:#e0e0e0; padding:10px; border-radius:5px; text-align:center; font-weight:bold;'>PAINEL DE COMANDOS</div>", unsafe_allow_html=True)
+        st.write("")
         
-        if meio_pagto == "Pix (Exibe QR Code)" and total_pago > 0:
-            st.write("**QR Code Dinâmico Gerado para o Cliente:**")
-            # Gera dinamicamente um QR Code de pagamento para a tela
-            st.image(f"https://qrserver.com{total_pago:.2f}")
-            
-        btn_fechar_venda = st.button("🏁 Concluir Venda e Baixar Estoque", type="primary", use_container_width=True, disabled=(total_pago == 0))
+        # Botão para finalizar venda (Habilitado apenas se houver itens e o pagamento cobrir o total)
+        btn_finalizar = st.button("🛟 F6 - FECHAR VENDA", type="primary", use_container_width=True, disabled=(total_compra == 0 or valor_restante > 0))
         
-        if btn_fechar_venda:
+        # Botão para cancelar item específico
+        idx_cancelar = st.number_input("Nº Item p/ Cancelar", min_value=1, max_value=max(len(st.session_state.carrinho_novo), 1), step=1)
+        btn_cancelar_item = st.button("⚠️ F4 - CANCELAR ITEM", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0))
+        
+        # Botão para cancelar venda inteira
+        btn_cancelar_venda = st.button("❌ F7 - CANCELAR VENDA", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0))
+
+        if btn_finalizar:
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             
-            # Executa a baixa automática no almoxarifado para cada item vendido
+            # Executa a baixa no estoque do almoxarifado para cada item vendido
             for item in st.session_state.carrinho_novo:
-                cursor.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", (item["Qtd"], item["Código"]))
+                cursor.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", (item["Quantidade"], item["Cód. Produto"]))
             
-            # Registra o cabeçalho da venda
-            cursor.execute("INSERT INTO vendas (data_hora, total, forma_pagamento) VALUES (?, ?, ?)",
-                           (datetime.now().strftime("%d/%m/%Y %H:%M"), total_pago, meio_pagto))
+            # Mapeia dinamicamente as formas de pagamento informadas para histórico do banco
+            formas_usadas = []
+            if val_dinheiro > 0: formas_usadas.append(f"Dinheiro (R$ {val_dinheiro:.2f})")
+            if val_pix > 0: formas_usadas.append(f"Pix (R$ {val_pix:.2f})")
+            if val_debito > 0: formas_usadas.append(f"Débito (R$ {val_debito:.2f})")
+            if val_credito > 0: formas_usadas.append(f"Crédito (R$ {val_credito:.2f})")
+            str_pagamento = " + ".join(formas_usadas)
+            
+            # Salva o cabeçalho consolidado da venda no banco de dados
+            cursor.execute("INSERT INTO vendas (data_hora, subtotal, desconto_total, total, forma_pagamento) VALUES (?, ?, ?, ?, ?)",
+                           (datetime.now().strftime("%d/%m/%Y %H:%M"), subtotal, (descontos_itens + desc_total_venda), total_compra, str_pagamento))
             
             conn.commit()
             conn.close()
-            st.success("Venda finalizada com sucesso! Saídas registradas no Almoxarifado.")
+            st.success("Venda Concluída! Banco de dados atualizado com sucesso.")
             st.session_state.carrinho_novo = []
-            st.canvas = None
+            st.rerun()
+
+        if btn_cancelar_item:
+            # Remove o item selecionado e reordena a numeração sequencial do cupom
+            st.session_state.carrinho_novo = [item for item in st.session_state.carrinho_novo if item["Seq"] != idx_cancelar]
+            for i, item in enumerate(st.session_state.carrinho_novo):
+                item["Seq"] = i + 1
+            st.toast("Item cancelado do cupom!", icon="🚨")
+            st.rerun()
+
+        if btn_cancelar_venda:
+            st.session_state.carrinho_novo = []
+            st.toast("Venda cancelada integralmente!", icon="❌")
             st.rerun()
 
 # ==================== MÓDULO 2: ALMOXARIFADO ====================
@@ -228,7 +311,6 @@ elif menu == "📦 Almoxarifado / Estoque":
                     if c_barras and c_nome and c_preco > 0:
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
-                        # Atualiza se o código já existir ou insere um novo doce
                         cursor.execute("""
                             INSERT INTO produtos (codigo_barras, nome, preco_venda, estoque_atual)
                             VALUES (?, ?, ?, ?)
@@ -247,7 +329,6 @@ elif menu == "📦 Almoxarifado / Estoque":
     with col_alm2:
         with st.expander("🚨 Alertas de Estoque Crítico (Mínimo)"):
             conn = sqlite3.connect(DB_NAME)
-            # Busca produtos que estão abaixo ou iguais ao limite mínimo estabelecido
             df_critico = pd.read_sql_query("""
                 SELECT codigo_barras AS [Código], 
                        nome AS [Doce], 
@@ -316,13 +397,12 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
                         conn.close()
                 else:
                     st.error("⚠️ Todos os campos de credenciais precisam ser preenchidos.")
-# ==================== MÓDULO 4: RELATÓRIOS GRÁFICOS ====================
+
+# ==================== MÓDULO 4: RELATÓRIOS (CORRIGIDO) ====================
 elif menu == "📊 Relatórios de Vendas":
     st.header("Painel Gerencial - Visualização de Desempenho")
     
     conn = sqlite3.connect(DB_NAME)
-    
-    # 1. Carrega dados de faturamento diário
     df_faturamento = pd.read_sql_query("""
         SELECT SUBSTR(data_hora, 1, 10) AS [Data], 
                SUM(total) AS [Total Faturado (R$)] 
@@ -330,21 +410,8 @@ elif menu == "📊 Relatórios de Vendas":
         GROUP BY [Data] 
         ORDER BY [Data] DESC
     """, conn)
-    
-    # 2. Carrega histórico de itens mais vendidos (Simulação baseada nas vendas registradas)
-    # Nota: Em um fluxo completo, uma tabela 'vendas_itens' popularia perfeitamente essa métrica.
-    df_produtos_mais_vendidos = pd.read_sql_query("""
-        SELECT nome AS [Doce], 
-               preco_venda AS [Preço Unitário (R$)],
-               estoque_atual AS [Estoque Restante]
-        FROM produtos 
-        ORDER BY estoque_atual ASC 
-        LIMIT 5
-    """, conn)
-    
     conn.close()
     
-    # Exibição de Métricas Gerais de Destaque
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         total_acumulado = df_faturamento["Total Faturado (R$)"].sum() if not df_faturamento.empty else 0.0
@@ -354,24 +421,14 @@ elif menu == "📊 Relatórios de Vendas":
         st.metric(label="Dias Operacionais Registrados", value=total_vendas_count)
         
     st.markdown("---")
+    st.subheader("📈 Histórico Completo de Cupons Finalizados")
     
-    col_graf1, col_graf2 = st.columns(2)
+    conn = sqlite3.connect(DB_NAME)
+    df_vendas_todas = pd.read_sql_query("SELECT id AS [Nº Cupom], data_hora AS [Data/Hora], subtotal AS [Subtotal (R$)], desconto_total AS [Descontos (R$)], total AS [Total Pago], forma_pagamento AS [Formas de Pagto] FROM vendas ORDER BY id DESC", conn)
+    conn.close()
     
-    with col_graf1:
-        st.subheader("📈 Faturamento por Dia")
-        if not df_faturamento.empty:
-            # Renderiza um gráfico de linhas nativo e limpo do Streamlit para controle diário
-            st.line_chart(df_faturamento.set_index("Data")["Total Faturado (R$)"])
-            st.dataframe(df_faturamento, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhuma venda realizada até o momento para gerar o gráfico de faturamento.")
-            
-    with col_graf2:
-        st.subheader("🍩 Movimentação e Giro de Estoque")
-        if not df_produtos_mais_vendidos.empty:
-            st.write("Doces com maior saída (Menor estoque atual no almoxarifado):")
-            # Apresenta gráficos de barras comparativos nativos do Streamlit
-            st.bar_chart(df_produtos_mais_vendidos.set_index("Doce")["Estoque Restante"])
-            st.dataframe(df_produtos_mais_vendidos, use_container_width=True, hide_index=True)
-        else:
-            st.info("Cadastre produtos no Almoxarifado para visualizar as métricas de giro.")
+    if not df_vendas_todas.empty:
+        st.dataframe(df_vendas_todas, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma venda realizada até o momento.")
+
