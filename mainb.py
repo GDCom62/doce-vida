@@ -399,32 +399,55 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
                     st.error("⚠️ Todos os campos de credenciais precisam ser preenchidos.")
 
 # ==================== MÓDULO 4: RELATÓRIOS (CORRIGIDO) ====================
+# ==================== MÓDULO 4: RELATÓRIOS COM GRÁFICO ====================
 elif menu == "📊 Relatórios de Vendas":
     st.header("Painel Gerencial - Visualização de Desempenho")
     
+    # Busca dados agrupados por dia para o gráfico
     conn = sqlite3.connect(DB_NAME)
     df_faturamento = pd.read_sql_query("""
         SELECT SUBSTR(data_hora, 1, 10) AS [Data], 
                SUM(total) AS [Total Faturado (R$)] 
         FROM vendas 
         GROUP BY [Data] 
-        ORDER BY [Data] DESC
+        ORDER BY [Data] ASC
     """, conn)
     conn.close()
     
+    # Exibição de Métricas no topo
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         total_acumulado = df_faturamento["Total Faturado (R$)"].sum() if not df_faturamento.empty else 0.0
         st.metric(label="Faturamento Total Acumulado", value=f"R$ {total_acumulado:.2f}")
     with col_m2:
-        total_vendas_count = len(df_faturamento)
-        st.metric(label="Dias Operacionais Registrados", value=total_vendas_count)
+        total_dias = len(df_faturamento)
+        st.metric(label="Dias Operacionais Registrados", value=total_dias)
         
     st.markdown("---")
-    st.subheader("📈 Histórico Completo de Cupons Finalizados")
+    
+    # Seção do Gráfico de Desempenho
+    st.subheader("📈 Evolução do Faturamento Diário")
+    if not df_faturamento.empty:
+        # Prepara o DataFrame colocando a Data como índice para o Streamlit gerar o gráfico corretamente
+        df_grafico = df_faturamento.set_index("Data")
+        st.line_chart(df_grafico, y="Total Faturado (R$)")
+    else:
+        st.info("Aguardando primeiras vendas para plotar o gráfico de desempenho.")
+        
+    st.markdown("---")
+    st.subheader("📋 Histórico Completo de Cupons Finalizados")
     
     conn = sqlite3.connect(DB_NAME)
-    df_vendas_todas = pd.read_sql_query("SELECT id AS [Nº Cupom], data_hora AS [Data/Hora], subtotal AS [Subtotal (R$)], desconto_total AS [Descontos (R$)], total AS [Total Pago], forma_pagamento AS [Formas de Pagto] FROM vendas ORDER BY id DESC", conn)
+    df_vendas_todas = pd.read_sql_query("""
+        SELECT id AS [Nº Cupom], 
+               data_hora AS [Data/Hora], 
+               subtotal AS [Subtotal (R$)], 
+               desconto_total AS [Descontos (R$)], 
+               total AS [Total Pago], 
+               forma_pagamento AS [Formas de Pagto] 
+        FROM vendas 
+        ORDER BY id DESC
+    """, conn)
     conn.close()
     
     if not df_vendas_todas.empty:
