@@ -224,7 +224,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             col_busca1, col_busca2, col_busca3 = st.columns([2, 1, 1])
             with col_busca1:
                 input_produto = st.selectbox("Buscar Produto:", options=opcoes_produtos)
-                                qtd_item = st.number_input("QUANTIDADE", min_value=1, value=1, step=1, key="pdv_qtd_input")
+                qtd_item = st.number_input("QUANTIDADE", min_value=1, value=1, step=1, key="pdv_qtd_input")
             with col_busca3:
                 desconto_item = st.number_input("DESC. ITEM (R$)", min_value=0.0, value=0.0, step=0.5, key="pdv_desc_item_input")
             
