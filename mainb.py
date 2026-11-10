@@ -17,7 +17,7 @@ def inicializar_banco_doce_vida():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Tabela de Funcionários / Acesso
+    # Tabela de Funcionários
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS funcionarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,15 +25,6 @@ def inicializar_banco_doce_vida():
         usuario TEXT UNIQUE NOT NULL,
         senha TEXT NOT NULL,
         cargo TEXT NOT NULL
-    )""")
-    
-    # Tabela de Clientes
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS clientes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        cpf TEXT UNIQUE,
-        telefone TEXT
     )""")
     
     # Tabela do Almoxarifado (Produtos)
@@ -115,12 +106,12 @@ if "autenticado" not in st.session_state:
 if "carrinho_novo" not in st.session_state:
     st.session_state.carrinho_novo = []
 
-# --- TELA DE LOGIN PROTEGIDA E FORMATADA ---
+# --- TELA DE LOGIN PROTEGIDA ---
 if not st.session_state.autenticado:
     st.markdown("<h2 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>🍭 Doce Vida - SweetManager Pro</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray; margin-top: -15px;'>Painel Restrito de Acesso</p>", unsafe_allow_html=True)
     
-    col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     
     with col_l2:
         with st.form("login_sistema"):
@@ -181,7 +172,7 @@ with st.sidebar:
 if menu == "🛒 Frente de Caixa (PDV)":
     st.markdown("<h1 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>🍭 Doce Vida - Frente de Caixa</h1>", unsafe_allow_html=True)
     
-    col_principal, col_botoes = st.columns([3.2, 1.0])
+    col_principal, col_botoes = st.columns([3, 1])
     
     with col_principal:
         # Monitor Virtual do Operador
@@ -224,10 +215,10 @@ if menu == "🛒 Frente de Caixa (PDV)":
             col_busca1, col_busca2, col_busca3 = st.columns([2, 1, 1])
             with col_busca1:
                 input_produto = st.selectbox("Buscar Produto:", options=opcoes_produtos)
+            with col_busca2:
                 qtd_item = st.number_input("QUANTIDADE", min_value=1, value=1, step=1, key="pdv_qtd_input")
             with col_busca3:
                 desconto_item = st.number_input("DESC. ITEM (R$)", min_value=0.0, value=0.0, step=0.5, key="pdv_desc_item_input")
-            
             btn_lancar = st.form_submit_button("➕ LANÇAR NO CUPOM (ENTER)", use_container_width=True)
 
         if btn_lancar and input_produto not in ["Selecione ou digite o código/nome...", "Nenhum produto cadastrado"]:
@@ -264,6 +255,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.dataframe(df_cart.drop(columns=["id"]), use_container_width=True, hide_index=True)
         else:
             st.info("Aguardando leitura de código de barras ou seleção de mercadorias...")
+
         # Cálculos de Fechamento do Caixa
         subtotal = sum(item["Quantidade"] * item["Valor Unitário"] for item in st.session_state.carrinho_novo)
         descontos_itens = sum(item["Valor Desconto"] for item in st.session_state.carrinho_novo)
@@ -432,6 +424,11 @@ elif menu == "📦 Almoxarifado":
                     st.toast("Estoque ajustado com sucesso!", icon="🔄")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Erro: {e}")
+                    st.error(f"Erro: {e}")                    st.error(f"Erro: {e}")
 
-            with col_busca2:
+# =========================================================================
+# 6. MENSAGEM DE RODAPÉ PADRÃO (OPCIONAL)
+# =========================================================================
+st.markdown("---")
+st.caption("✨ Doce Vida v2.0 - Frente de Caixa & Gestão de Almoxarifado")
+
