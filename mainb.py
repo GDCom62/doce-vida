@@ -287,12 +287,12 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.toast("Venda cancelada com sucesso!", icon="❌")
             st.rerun()
 
-        if btn_finalizar:
+                if btn_finalizar:
             try:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
                 
-                # Garante que a tabela detalhada de itens exista no banco
+                # Garante a existência da tabela detalhada
                 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS itens_venda (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -308,8 +308,8 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 for item in st.session_state.carrinho_novo:
                     cursor.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", (item["Quantidade"], item["Cód. Produto"]))
                 
-                # 2. Consolidação textual das formas de pagamento utilizadas
-                formas_usadas = []
+                # 2. Consolidação textual das formas de pagamento
+                formas_usadas = 
                 if val_dinheiro > 0: formas_usadas.append(f"Dinheiro (R$ {val_dinheiro:.2f})")
                 if val_pix > 0: formas_usadas.append(f"Pix (R$ {val_pix:.2f})")
                 if val_debito > 0: formas_usadas.append(f"Débito (R$ {val_debito:.2f})")
@@ -317,28 +317,28 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 str_pagamento = " + ".join(formas_usadas)
                 
                 # 3. Salva o cabeçalho master da venda
+                desc_total_aplicado = descontos_itens + desc_total_venda
                 cursor.execute("INSERT INTO vendas (data_hora, subtotal, desconto_total, total, forma_pagamento) VALUES (?, ?, ?, ?, ?)",
-                               (datetime.now().strftime("%d/%m/%Y %H:%M"), subtotal, (descontos_itens + desc_total_venda), total_compra, str_pagamento))
+                               (datetime.now().strftime("%d/%m/%Y %H:%M"), subtotal, desc_total_aplicado, total_compra, str_pagamento))
                 
                 venda_id = cursor.lastrowid
-
+                
                 # 4. Salva a relação de cada item vendido associado a essa venda
                 for item in st.session_state.carrinho_novo:
                     cursor.execute("""
                         INSERT INTO itens_venda (venda_id, produto_id, quantidade, valor_unitario, desconto_item, subtotal)
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (venda_id, item["id"], item["Quantidade"], item["Valor Unitário"], item["Valor Desconto"], item["Valor Total"]))
-
-                # O COMANDO CRUCIAL: Salva definitivamente todas as movimentações no arquivo físico do banco
+                
+                # PERSISTÊNCIA COMPLETA E ASSINATURA NO DISCO RIGIDO DO BANCO
                 conn.commit()
                 conn.close()
-
-                st.success("Venda Concluída! Banco de dados atualizado e persistido com sucesso.")
-                st.session_state.carrinho_novo = []
-                st.rerun()
-
+                
+                # CHAMA A JANELA FLUTUANTE (POPUP MODAL) PASSANDO OS VALORES AQUI
+                abrir_popup_cupom(venda_id, subtotal, desc_total_aplicado, total_compra, str_pagamento)
+                
             except sqlite3.Error as e:
-                st.error(f"Erro ao gravar dados no SQLite: {e}")
+                st.error(f"Erro Crítico de Banco de Dados: {e}")
 
 # ==================== MÓDULO 3: CADASTROS ====================
 elif menu == "👥 Cadastros (Clientes/Equipe)":
