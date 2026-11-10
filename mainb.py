@@ -38,7 +38,10 @@ def abrir_popup_cupom(venda_id, subtotal, desconto, total, formas_texto):
 # ==============================================================================
 import os
 import sqlite3
-
+# --- DIRETÓRIO ÚNICO E OFICIAL DO BANCO DA LOJA DOCE VIDA ---
+PASTA_BANCO = "banco_doce_vida"
+if not os.path.exists(PASTA_BANCO):
+    os.makedirs(PASTA_BANCO, exist_ok=True)
 # --- AJUSTE DE PASTAS UNIFICADO: DOCE VIDA ---
 if not os.path.exists("banco_doce_vida"):
     os.makedirs("banco_doce_vida")
