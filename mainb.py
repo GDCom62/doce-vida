@@ -142,18 +142,19 @@ if not st.session_state.autenticado:
                 user_data = cursor.fetchone()
                 conn.close()
                 
-                if user_data:
-                    st.session_state.autenticado = True
-                    st.session_state.user_nome = user_data[0]
-                    st.session_state.user_cargo = user_data[1]
-                    st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
-                    st.rerun()
-                else:
-                    st.error("Usuário ou senha inválidos para a base desta loja.")
+            if user_data:
+                st.session_state.autenticado = True
+                # Certifique-se de que os colchetes [0] e [1] estão aqui:
+                st.session_state.user_nome = user_data[0]   # Pega o Nome
+                st.session_state.user_cargo = user_data[1]  # Pega o Cargo
+                st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
+                st.rerun()
+            
 
 # --- INTERFACE PRINCIPAL APÓS LOGIN ---
 st.sidebar.title("🍭 Menu Administrativo")
-st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_cargo})")
+if "autenticado" in st.session_state and st.session_state.autenticado:
+    st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_cargo})")
 st.sidebar.markdown("---")
 
 # CORREÇÃO: Inclusão do módulo de Relatórios de Vendas para seleção no Menu
