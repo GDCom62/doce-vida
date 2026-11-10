@@ -127,10 +127,10 @@ if not st.session_state.autenticado:
     st.markdown("<h2 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>🍭 Doce Vida - SweetManager Pro</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray; margin-top: -15px;'>Painel Restrito de Acesso</p>", unsafe_allow_html=True)
     
-           with st.form("login_sistema"):
-            user = st.text_input("Usuário de Acesso")
-            password = st.text_input("Senha", type="password")
-            btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
+    with st.form("login_sistema"):
+        user = st.text_input("Usuário de Acesso")
+        password = st.text_input("Senha", type="password")
+        btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
             
             # ATENÇÃO: Tudo a partir daqui precisa estar alinhado para DENTRO do formulário
             if btn_login:
