@@ -133,25 +133,22 @@ if not st.session_state.autenticado:
         btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
         
         # LINHA 136 CORRIGIDA: Deve ter exatamente 8 espaços de recuo
-        if btn_login:
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("SELECT nome, cargo FROM funcionarios WHERE usuario = ? AND senha = ?", (user, password))
-            user_data = cursor.fetchone()
-            conn.close()
-
-
-                
-                # A LINHA 145 PRECISA ESTAR AQUI (Com 16 espaços de recuo à esquerda)
+            if btn_login:  # (8 espaços)
+                conn = sqlite3.connect(DB_NAME)  # (12 espaços)
+                cursor = conn.cursor()  # (12 espaços)
+                cursor.execute("SELECT nome, cargo FROM funcionarios WHERE usuario = ? AND senha = ?", (user, password))  # (12 espaços)
+                user_data = cursor.fetchone()  # (12 espaços)
+                conn.close()  # (12 espaços)
+            
+            # LINHA 146 CORRIGIDA: Alinhada exatamente na mesma coluna do conn.close() (12 espaços)
                 if user_data:
-                    st.session_state.autenticado = True
-                    st.session_state.user_nome = user_data[0]
-                    st.session_state.user_cargo = user_data[1]
-                    st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
-                    st.rerun()
+                    st.session_state.autenticado = True  # (16 espaços)
+                    st.session_state.user_nome = user_data[0]  # (16 espaços)
+                    st.session_state.user_cargo = user_data[1]  # (16 espaços)
+                    st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")  # (16 espaços)
+                    st.rerun()  # (16 espaços)
                 else:
-                    st.error("Usuário ou senha inválidos para a base desta loja.")
-
+                    st.error("Usuário ou senha inválidos para a base desta loja.")  # (16 espaços)
 
 # --- INTERFACE PRINCIPAL APÓS LOGIN ---
 st.sidebar.title("🍭 Menu Administrativo")
