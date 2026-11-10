@@ -127,14 +127,12 @@ if not st.session_state.autenticado:
     st.markdown("<h2 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>🍭 Doce Vida - SweetManager Pro</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray; margin-top: -15px;'>Painel Restrito de Acesso</p>", unsafe_allow_html=True)
     
-    col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
-    
-    with col_l2:
-        with st.form("login_sistema"):
+           with st.form("login_sistema"):
             user = st.text_input("Usuário de Acesso")
             password = st.text_input("Senha", type="password")
             btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
             
+            # ATENÇÃO: Tudo a partir daqui precisa estar alinhado para DENTRO do formulário
             if btn_login:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
@@ -142,14 +140,16 @@ if not st.session_state.autenticado:
                 user_data = cursor.fetchone()
                 conn.close()
                 
-            if user_data:
-                st.session_state.autenticado = True
-                # Certifique-se de que os colchetes [0] e [1] estão aqui:
-                st.session_state.user_nome = user_data[0]   # Pega o Nome
-                st.session_state.user_cargo = user_data[1]  # Pega o Cargo
-                st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
-                st.rerun()
-            
+                # A LINHA 145 PRECISA ESTAR AQUI (Com 16 espaços de recuo à esquerda)
+                if user_data:
+                    st.session_state.autenticado = True
+                    st.session_state.user_nome = user_data[0]
+                    st.session_state.user_cargo = user_data[1]
+                    st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha inválidos para a base desta loja.")
+
 
 # --- INTERFACE PRINCIPAL APÓS LOGIN ---
 st.sidebar.title("🍭 Menu Administrativo")
