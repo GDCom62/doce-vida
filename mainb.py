@@ -423,12 +423,14 @@ elif menu == "📦 Almoxarifado":
                     conn.close()
                     st.toast("Estoque ajustado com sucesso!", icon="🔄")
                     st.rerun()
-                    except Exception as e:
+                except Exception as e:
                     st.error(f"Erro: {e}")
 
 # =========================================================================
-# 6. MENSAGEM DE RODAPÉ PADRÃO (OPCIONAL)
+# 6. MENSAGEM DE RODAPÉ PADRÃO
 # =========================================================================
 st.markdown("---")
+st.caption("✨ Doce Vida v2.0 - Frente de Caixa & Gestão de Almoxarifado")
+
 st.caption("✨ Doce Vida v2.0 - Frente de Caixa & Gestão de Almoxarifado")
 
