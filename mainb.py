@@ -423,8 +423,8 @@ elif menu == "📦 Almoxarifado":
                     conn.close()
                     st.toast("Estoque ajustado com sucesso!", icon="🔄")
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Erro: {e}")                    st.error(f"Erro: {e}")
+                                except Exception as e:
+                    st.error(f"Erro: {e}")
 
 # =========================================================================
 # 6. MENSAGEM DE RODAPÉ PADRÃO (OPCIONAL)
