@@ -423,7 +423,7 @@ elif menu == "📦 Almoxarifado":
                     conn.close()
                     st.toast("Estoque ajustado com sucesso!", icon="🔄")
                     st.rerun()
-                                except Exception as e:
+                    except Exception as e:
                     st.error(f"Erro: {e}")
 
 # =========================================================================
