@@ -10,10 +10,16 @@ st.set_page_config(page_title="SweetManager PDV Pro", page_icon="🍭", layout="
 # ==============================================================================
 # CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS
 # ==============================================================================
-if not os.path.exists("banco_dados"):
-    os.makedirs("banco_dados")
+import os
+import sqlite3
 
-DB_NAME = os.path.join("banco_dados", "estoque_loja_independente.db")
+# --- AJUSTE DE PASTAS UNIFICADO: DOCE VIDA ---
+if not os.path.exists("banco_doce_vida"):
+    os.makedirs("banco_doce_vida")
+
+# O banco de dados agora fica salvo de forma personalizada dentro da pasta da loja
+DB_NAME = os.path.join("banco_doce_vida", "doce_vida_sistema.db")
+
 
 def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
@@ -86,9 +92,12 @@ if "autenticado" not in st.session_state:
 if "carrinho_novo" not in st.session_state:
     st.session_state.carrinho_novo = []
 
-# --- TELA DE LOGIN ---
+# --- TELA DE LOGIN CORRIGIDA ---
 if not st.session_state.autenticado:
-    st.markdown("<h2 style='text-align: center;'>🍭 SweetManager Pro - Acesso Restrito</h2>", unsafe_allow_html=True)
+    # Nome oficial da loja centralizado no topo do painel de login
+    st.markdown("<h2 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>🍭 Doce Vida - SweetManager Pro</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray; margin-top: -15px;'>Painel Restrito de Acesso</p>", unsafe_allow_html=True)
+    
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
@@ -108,11 +117,12 @@ if not st.session_state.autenticado:
                     st.session_state.autenticado = True
                     st.session_state.user_nome = user_data[0]
                     st.session_state.user_cargo = user_data[1]
-                    st.success(f"Bem-vindo, {user_data[0]}!")
+                    st.success(f"Bem-vindo à Doce Vida, {user_data[0]}!")
                     st.rerun()
                 else:
                     st.error("Usuário ou senha inválidos para a base desta loja.")
     st.stop()
+
 
 # --- INTERFACE PRINCIPAL APÓS LOGIN ---
 st.sidebar.title("🍭 Menu Administrativo")
