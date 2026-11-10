@@ -131,14 +131,16 @@ if not st.session_state.autenticado:
         user = st.text_input("Usuário de Acesso")
         password = st.text_input("Senha", type="password")
         btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
-            
-            # ATENÇÃO: Tudo a partir daqui precisa estar alinhado para DENTRO do formulário
-            if btn_login:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("SELECT nome, cargo FROM funcionarios WHERE usuario = ? AND senha = ?", (user, password))
-                user_data = cursor.fetchone()
-                conn.close()
+        
+        # LINHA 136 CORRIGIDA: Deve ter exatamente 8 espaços de recuo
+        if btn_login:
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute("SELECT nome, cargo FROM funcionarios WHERE usuario = ? AND senha = ?", (user, password))
+            user_data = cursor.fetchone()
+            conn.close()
+
+
                 
                 # A LINHA 145 PRECISA ESTAR AQUI (Com 16 espaços de recuo à esquerda)
                 if user_data:
