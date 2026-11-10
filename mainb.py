@@ -287,7 +287,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.toast("Venda cancelada com sucesso!", icon="❌")
             st.rerun()
 
-                if btn_finalizar:
+        if btn_finalizar:
             try:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
