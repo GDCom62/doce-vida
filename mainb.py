@@ -150,8 +150,6 @@ if not st.session_state.autenticado:
                     st.rerun()
                 else:
                     st.error("Usuário ou senha inválidos para a base desta loja.")
-    st.stop()
-
 
 # --- INTERFACE PRINCIPAL APÓS LOGIN ---
 st.sidebar.title("🍭 Menu Administrativo")
