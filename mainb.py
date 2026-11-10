@@ -453,7 +453,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
         st.write("")
         
         # Botão Master - Concluir Transação (Desabilitado se faltar dinheiro)
-        btn_finalizar = st.button("🛟 F6 - FINALIZAR VENDA", type="primary", use_container_width=True, disabled=(total_compra == 0 or valor_restante > 0))
+        btn_finalizar = st.button("🛟 F6 - FINALIZAR VENDA", type="primary", use_container_width=True, disabled=(total_compra == 0 or valor_restante > 0), key="pdv_btn_finalizar_novo")
         st.write("")
         
         # Caixa de Cancelamento Individual
