@@ -169,7 +169,101 @@ menu = st.sidebar.radio("Navegar por Módulos:", [
 if st.sidebar.button("🚪 Desconectar Sistema", type="secondary"):
     st.session_state.autenticado = False
     st.rerun()
+# ==================== MÓDULO 2: ALMOXARIFADO (ESTOQUE DOCE VIDA) ====================
+if menu == "📦 Almoxarifado" or menu == "📦 Estoque": # Ajuste o nome conforme o seu menu lateral
+    st.markdown("<h1 style='text-align: center; color: #ff69b4; font-family: \"Comic Sans MS\", cursive;'>📦 Almoxarifado - Controle de Estoque</h1>", unsafe_allow_html=True)
+    
+    # -------------------------------------------------------------------------
+    # 1. FORMULÁRIO DE CADASTRO DE NOVOS PRODUTOS
+    # -------------------------------------------------------------------------
+    with st.expander("✨ Cadastrar Novo Doce / Produto", expanded=False):
+        with st.form("cadastro_produto_almoxarifado", clear_on_submit=True):
+            col_cad1, col_cad2 = st.columns(2)
+            with col_cad1:
+                cad_codigo = st.text_input("Código de Barras / Identificador Único:", placeholder="Bipe o produto ou digite...")
+                cad_nome = st.text_input("Descrição / Nome do Doce:", placeholder="Ex: Brigadeiro Gourmet de Pista...")
+            with col_cad2:
+                cad_preco = st.number_input("Preço de Venda (R$):", min_value=0.0, value=0.0, step=0.50)
+                cad_estoque = st.number_input("Estoque Inicial (Qtd):", min_value=0, value=10, step=1)
+            
+            btn_cadastrar_prod = st.form_submit_button("💾 Salvar no Almoxarifado", use_container_width=True)
+            
+            if btn_cadastrar_prod:
+                if not cad_codigo or not cad_nome or cad_preco <= 0:
+                    st.error("Por favor, preencha todos os campos corretamente. O preço deve ser maior que zero.")
+                else:
+                    try:
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO produtos (codigo_barras, nome, preco_venda, estoque_atual) 
+                            VALUES (?, ?, ?, ?)
+                        """, (cad_codigo.strip(), cad_nome.strip(), cad_preco, cad_estoque))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"🎉 '{cad_nome}' cadastrado com sucesso no banco de dados!")
+                        st.rerun()
+                    except sqlite3.IntegrityError:
+                        st.error("Erro: Já existe um produto cadastrado com este mesmo Código de Barras.")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
 
+    # -------------------------------------------------------------------------
+    # 2. TABELA DE VISUALIZAÇÃO E ALERTAS DE ESTOQUE CRÍTICO
+    # -------------------------------------------------------------------------
+    st.markdown("### 📋 Posição Atual do Estoque")
+    
+    conn = sqlite3.connect(DB_NAME)
+    # Usando o pandas para ler diretamente e facilitar a exibição visual elegante
+    df_estoque = pd.read_sql_query("SELECT id, codigo_barras AS 'Código de Barras', nome AS 'Descrição', preco_venda AS 'Preço (R$)', estoque_atual AS 'Estoque Atual' FROM produtos", conn)
+    conn.close()
+    
+    if df_estoque.empty:
+        st.info("O almoxarifado está sem nenhuma mercadoria registrada no momento.")
+    else:
+        # Verifica se algum produto está com estoque muito baixo (ex: menos de 5 unidades)
+        itens_criticos = df_estoque[df_estoque['Estoque Atual'] <= 5]
+        if not itens_criticos.empty:
+            st.markdown(f"""
+                <div style='background-color:#fadbd8; padding:12px; border-radius:6px; color:#922b21; font-weight:bold; margin-bottom:15px;'>
+                    ⚠️ ATENÇÃO: Há {len(itens_criticos)} itens com estoque crítico (5 unidades ou menos)! Abasteça o almoxarifado.
+                </div>
+            """, unsafe_allow_html=True)
+            
+        # Exibe a tabela bonitinha e organizada na tela
+        st.dataframe(df_estoque.drop(columns=["id"]), use_container_width=True, hide_index=True)
+
+        # -------------------------------------------------------------------------
+        # 3. PAINEL DE AJUSTE RÁPIDO / ENTRADA DE MERCADORIA
+        # -------------------------------------------------------------------------
+        st.markdown("### 🔄 Atualização Rápida de Estoque")
+        with st.form("ajuste_estoque_rapido", clear_on_submit=True):
+            col_aj1, col_aj2 = st.columns(2)
+            with col_aj1:
+                # Cria uma lista de seleção com os produtos existentes para o usuário escolher qual vai atualizar
+                opcoes_ajuste = [f"{row['Código de Barras']} - {row['Descrição']}" for _, row in df_estoque.iterrows()]
+                prod_selecionado = st.selectbox("Escolha o Doce para Ajustar:", options=opcoes_ajuste)
+            with col_aj2:
+                qtd_adicionar = st.number_input("Quantidade a Adicionar (Para balanço ou entrada):", min_value=-100, max_value=1000, value=10, step=1)
+            
+            btn_atualizar_estoque = st.form_submit_button("⚡ Atualizar Quantidade", use_container_width=True)
+            
+            if btn_atualizar_estoque:
+                cod_para_ajuste = prod_selecionado.split(" - ")[0]
+                try:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE produtos 
+                        SET estoque_atual = estoque_atual + ? 
+                        WHERE codigo_barras = ?
+                    """, (qtd_adicionar, cod_para_ajuste))
+                    conn.commit()
+                    conn.close()
+                    st.toast("Estoque atualizado com sucesso!", icon="🔄")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao atualizar: {e}")
 # ==================== MÓDULO 1: PDV (ESTILO DOCE VIDA PRO) ====================
 if menu == "🛒 Frente de Caixa (PDV)":
     # -------------------------------------------------------------------------
