@@ -458,13 +458,17 @@ if menu == "🛒 Frente de Caixa (PDV)":
         
         # Caixa de Cancelamento Individual
         st.markdown("<div style='background-color:#f8f9f9; padding:10px; border:1px solid #d5dbdb; border-radius:6px;'>", unsafe_allow_html=True)
-        idx_cancelar = st.number_input("Nº do Item", min_value=1, max_value=max(len(st.session_state.carrinho_novo), 1), step=1)
-        btn_cancelar_item = st.button("⚠️ F4 - CANCELAR ITEM", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0))
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.write("")
+        st.markdown("", unsafe_allow_html=True)
+        idx_cancelar = st.number_input("Nº Item", min_value=1, max_value=max(len(st.session_state.carrinho_novo), 1), step=1)
         
-        # Botão de Abortar Operação Completa
-        btn_cancelar_venda = st.button("❌ F7 - CANCELAR VENDA", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0))
+        # CORREÇÃO DA LINHA 462: Adicionada a chave única 'key'
+        btn_cancelar_item = st.button("⚠️ F4 - CANCELAR ITEM", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0), key="btn_cancelar_item_unico")
+        st.markdown("", unsafe_allow_html=True)
+        st.write("")
+
+        # PREVENÇÃO PARA O PRÓXIMO BOTÃO: Adicionada a chave única 'key' para evitar o erro no F7
+        btn_cancelar_venda = st.button("❌ F7 - CANCELAR VENDA", type="secondary", use_container_width=True, disabled=(len(st.session_state.carrinho_novo) == 0), key="btn_cancelar_venda_unico")
+
 
         # Ação: Remover item específico
         if btn_cancelar_item:
