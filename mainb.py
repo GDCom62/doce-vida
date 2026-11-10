@@ -554,7 +554,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
         st.write("")
         
         # Caixa de Cancelamento Individual
-                st.markdown("", unsafe_allow_html=True)
+        st.markdown("", unsafe_allow_html=True)
         # CORREÇÃO DA LINHA 559: Adicionada a chave única 'key' para o seletor numérico
         idx_cancelar = st.number_input("Nº Item", min_value=1, max_value=max(len(st.session_state.carrinho_novo), 1), step=1, key="pdv_idx_cancelar_item_exclusivo")
         
