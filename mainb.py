@@ -309,7 +309,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                     cursor.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", (item["Quantidade"], item["Cód. Produto"]))
                 
                 # 2. Consolidação textual das formas de pagamento
-                formas_usadas = 
+                formas_usadas = []
                 if val_dinheiro > 0: formas_usadas.append(f"Dinheiro (R$ {val_dinheiro:.2f})")
                 if val_pix > 0: formas_usadas.append(f"Pix (R$ {val_pix:.2f})")
                 if val_debito > 0: formas_usadas.append(f"Débito (R$ {val_debito:.2f})")
