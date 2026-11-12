@@ -57,26 +57,18 @@ def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, 
     return "\n".join(linhas)
 
 def inicializar_banco_isolado():
-        # Migração automática e correção de produtos antigos para aparecerem no PDV
-    cursor.execute("PRAGMA table_info(produtos)")
-    colunas_existentes = [col for col in cursor.fetchall()]
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
     
-    if "produto_base" not in colunas_existentes:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN produto_base TEXT DEFAULT 'Geral'")
-    if "variacao" not in colunas_existentes:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN variacao TEXT DEFAULT 'Padrão'")
-        
-    # Garante que produtos antigos sem 'produto_base' preenchido usem o próprio nome
+    # 1. Tabela de Funcionários/Acesso
     cursor.execute("""
-        UPDATE produtos 
-        SET produto_base = nome 
-        WHERE produto_base IS NULL OR produto_base = '' OR produto_base = 'Geral'
-    """)
-    cursor.execute("""
-        UPDATE produtos 
-        SET variacao = 'Padrão' 
-        WHERE variacao IS NULL OR variacao = ''
-    """)
+    CREATE TABLE IF NOT EXISTS funcionarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        usuario TEXT UNIQUE NOT NULL,
+        senha TEXT NOT NULL,
+        cargo TEXT NOT NULL
+    )""")
     
     # 2. Tabela de Clientes
     cursor.execute("""
@@ -99,7 +91,8 @@ def inicializar_banco_isolado():
         estoque_atual INTEGER DEFAULT 0,
         estoque_minimo INTEGER DEFAULT 5
     )""")
-        # Migração automática: garante que colunas novas existam em bancos antigos
+
+    # Migração automática e correção de produtos antigos (DEVE FICAR AQUI)
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_existentes = [col[1] for col in cursor.fetchall()]
     
@@ -107,6 +100,17 @@ def inicializar_banco_isolado():
         cursor.execute("ALTER TABLE produtos ADD COLUMN produto_base TEXT DEFAULT 'Geral'")
     if "variacao" not in colunas_existentes:
         cursor.execute("ALTER TABLE produtos ADD COLUMN variacao TEXT DEFAULT 'Padrão'")
+        
+    cursor.execute("""
+        UPDATE produtos 
+        SET produto_base = nome 
+        WHERE produto_base IS NULL OR produto_base = '' OR produto_base = 'Geral'
+    """)
+    cursor.execute("""
+        UPDATE produtos 
+        SET variacao = 'Padrão' 
+        WHERE variacao IS NULL OR variacao = ''
+    """)
 
     # 4. Tabela de Histórico de Vendas
     cursor.execute("""
