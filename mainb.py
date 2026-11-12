@@ -152,7 +152,7 @@ if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
 # MÓDULO 1: PDV DEDICADO COM LISTA DE MERCADORIAS E LEITOR
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Dominus - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Doce Vida - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
     
     # Busca produtos cadastrados para preencher a lista de escolha
     conn = sqlite3.connect(DB_NAME)
