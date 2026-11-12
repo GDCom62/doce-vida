@@ -100,7 +100,7 @@ if "carrinho_novo" not in st.session_state:
 # TELA DE LOGIN
 # ==============================================================================
 if not st.session_state.autenticado:
-    st.markdown("<h2 style='text-align: center;'>🛒 Dominus PDV - Acesso ao Sistema</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🛒 Doce Vida PDV - Acesso </h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
