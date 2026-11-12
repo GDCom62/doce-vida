@@ -388,7 +388,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE
 # ==============================================================================
 elif menu == "📦 Almoxarifado / Estoque":
-    st.header("Gestão Central de Almoxarifado (Entradas e Saídas)")
+    st.header("Almoxarifado (Entradas e Saídas)")
     
     conn = sqlite3.connect(DB_NAME)
     df_almoxarifado = pd.read_sql_query("""
