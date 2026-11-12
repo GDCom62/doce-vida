@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 
 # Configuração da página Web do Streamlit
-st.set_page_config(page_title="Dominus PDV - Gestão Integrada", page_icon="🛒", layout="wide")
+st.set_page_config(page_title="Doce Vida PDV - Gestão Integrada", page_icon="🛒", layout="wide")
 
 # ==============================================================================
 # CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS
