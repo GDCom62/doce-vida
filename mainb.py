@@ -24,7 +24,7 @@ def exibir_logo_centralizado(largura=180):
 def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
     linhas = [
         "==========================================",
-        "           DOMINUS PDV - RECIBO           ",
+        "           DOCE VIDA PDV - RECIBO           ",
         "      COMPROVANTE NÃO FISCAL DE VENDA     ",
         "==========================================",
         f"Cupom Nº: {num_cupom:06d}   Data: {data_hora}",
@@ -57,18 +57,26 @@ def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, 
     return "\n".join(linhas)
 
 def inicializar_banco_isolado():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+        # Migração automática e correção de produtos antigos para aparecerem no PDV
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas_existentes = [col for col in cursor.fetchall()]
     
-    # 1. Tabela de Funcionários/Acesso
+    if "produto_base" not in colunas_existentes:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN produto_base TEXT DEFAULT 'Geral'")
+    if "variacao" not in colunas_existentes:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN variacao TEXT DEFAULT 'Padrão'")
+        
+    # Garante que produtos antigos sem 'produto_base' preenchido usem o próprio nome
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS funcionarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        usuario TEXT UNIQUE NOT NULL,
-        senha TEXT NOT NULL,
-        cargo TEXT NOT NULL
-    )""")
+        UPDATE produtos 
+        SET produto_base = nome 
+        WHERE produto_base IS NULL OR produto_base = '' OR produto_base = 'Geral'
+    """)
+    cursor.execute("""
+        UPDATE produtos 
+        SET variacao = 'Padrão' 
+        WHERE variacao IS NULL OR variacao = ''
+    """)
     
     # 2. Tabela de Clientes
     cursor.execute("""
@@ -155,7 +163,7 @@ if "ultimo_recibo" not in st.session_state:
 # ==============================================================================
 if not st.session_state.autenticado:
     exibir_logo_centralizado(largura=200)
-    st.markdown("<h2 style='text-align: center;'>🛒 Dominus PDV - Acesso ao Sistema</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🛒 Doce Vida PDV - Acesso </h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
@@ -204,6 +212,29 @@ with st.sidebar:
     ])
 
     st.markdown("---")
+    st.markdown("### 💾 Segurança dos Dados")
+    
+    # 1. Botão para Baixar o Backup do Banco Atual
+    if os.path.exists(DB_NAME):
+        with open(DB_NAME, "rb") as f_db:
+            bytes_db = f_db.read()
+        st.download_button(
+            label="📥 Baixar Backup (.db)",
+            data=bytes_db,
+            file_name=f"backup_dominus_{datetime.now().strftime('%d_%m_%Y_%H%M')}.db",
+            mime="application/octet-stream",
+            use_container_width=True
+        )
+        
+    # 2. Uploader para Restaurar Backup em caso de reinício do Streamlit Cloud
+    arquivo_backup = st.file_uploader("📤 Restaurar Backup (.db)", type=["db"], key="up_backup")
+    if arquivo_backup is not None:
+        if st.button("Confirmar Restauração", type="primary", use_container_width=True):
+            with open(DB_NAME, "wb") as f_out:
+                f_out.write(arquivo_backup.getbuffer())
+            st.success("✅ Dados restaurados com sucesso! Atualizando...")
+            st.rerun()
+
     if st.button("🚪 Sair do Sistema", use_container_width=True):
         st.session_state.autenticado = False
         st.session_state.carrinho_novo = []
@@ -219,6 +250,24 @@ if menu == "🛒 Frente de Caixa (PDV)":
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual FROM produtos ORDER BY produto_base ASC, variacao ASC")
+    lista_produtos_db = cursor.fetchall()
+    conn.close()
+
+    # Agrupa variações por Produto Base
+    produtos_agrupados = {}
+        # Busca produtos cadastrados para montar a seleção em cascata (Produto Base -> Variação)
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT codigo_barras, 
+               COALESCE(NULLIF(produto_base, ''), nome) as base, 
+               COALESCE(NULLIF(variacao, ''), 'Padrão') as var, 
+               nome, 
+               preco_venda, 
+               estoque_atual 
+        FROM produtos 
+        ORDER BY base ASC, var ASC
+    """)
     lista_produtos_db = cursor.fetchall()
     conn.close()
 
