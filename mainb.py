@@ -5,15 +5,56 @@ import pandas as pd
 from datetime import datetime
 
 # Configuração da página Web do Streamlit
-st.set_page_config(page_title="Doce Vida PDV - Gestão Integrada", page_icon="🛒", layout="wide")
+st.set_page_config(page_title="Dominus PDV - Gestão Integrada", page_icon="🛒", layout="wide")
 
 # ==============================================================================
-# CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS
+# CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS E GERADOR DE RECIBO
 # ==============================================================================
 if not os.path.exists("banco_dados"):
     os.makedirs("banco_dados")
 
 DB_NAME = os.path.join("banco_dados", "estoque_loja_independente.db")
+
+def exibir_logo_centralizado(largura=180):
+    if os.path.exists("logo_empresa.png"):
+        col_e, col_c, col_d = st.columns([1, 2, 1])
+        with col_c:
+            st.image("logo_empresa.png", width=largura)
+
+def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
+    linhas = [
+        "==========================================",
+        "           DOMINUS PDV - RECIBO           ",
+        "      COMPROVANTE NÃO FISCAL DE VENDA     ",
+        "==========================================",
+        f"Cupom Nº: {num_cupom:06d}   Data: {data_hora}",
+        "------------------------------------------",
+        "ITEM  DESCRIÇÃO                 QTD  TOTAL",
+        "------------------------------------------"
+    ]
+    for item in itens:
+        desc_curta = item["Descrição do Produto"][:24].ljust(24)
+        qtd_str = str(item["Quantidade"]).rjust(3)
+        tot_str = f"{item['Valor Total']:.2f}".rjust(7)
+        linhas.append(f"{item['Seq']:02d}    {desc_curta} {qtd_str} {tot_str}")
+        if item["Desconto Item"] > 0:
+            linhas.append(f"      (Desconto no item: -R$ {item['Desconto Item']:.2f})")
+            
+    linhas.extend([
+        "------------------------------------------",
+        f"SUBTOTAL:                     R$ {subtotal:8.2f}",
+        f"DESCONTOS APLICADOS:         -R$ {descontos:8.2f}",
+        f"TOTAL A PAGAR:                R$ {total:8.2f}",
+        "------------------------------------------",
+        "FORMAS DE PAGAMENTO:",
+        f"  {formas_pgto}",
+        f"VALOR RECEBIDO:               R$ {recebido:8.2f}",
+        f"TROCO:                        R$ {troco:8.2f}",
+        "==========================================",
+        "       OBRIGADO PELA PREFERÊNCIA!         ",
+        "=========================================="
+    ])
+    return "\n".join(linhas)
 
 def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
@@ -38,18 +79,20 @@ def inicializar_banco_isolado():
         telefone TEXT
     )""")
     
-    # 3. Tabela do Almoxarifado (Produtos)
+    # 3. Tabela do Almoxarifado (Produtos com Produto Base + Variação)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codigo_barras TEXT UNIQUE,
+        produto_base TEXT NOT NULL,
+        variacao TEXT NOT NULL,
         nome TEXT NOT NULL,
         preco_venda REAL NOT NULL,
         estoque_atual INTEGER DEFAULT 0,
         estoque_minimo INTEGER DEFAULT 5
     )""")
     
-    # 4. Tabela de Histórico de Vendas (Saídas)
+    # 4. Tabela de Histórico de Vendas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vendas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +103,7 @@ def inicializar_banco_isolado():
         forma_pagamento TEXT
     )""")
 
-    # Usuário padrão para o primeiro acesso administrativo
+    # Usuário padrão
     cursor.execute("SELECT COUNT(*) FROM funcionarios")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
@@ -68,22 +111,23 @@ def inicializar_banco_isolado():
             ("Administrador", "admin", "admin123", "Gerente")
         )
         
-    # Produtos iniciais de teste para o Almoxarifado
+    # Produtos iniciais de exemplo com Produto Base + Variações
     cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone()[0] == 0:
-        cursor.execute(
-            "INSERT INTO produtos (codigo_barras, nome, preco_venda, estoque_atual) VALUES (?, ?, ?, ?)",
-            ("78910001", "Brigadeiro Tradicional", 4.00, 100)
-        )
-        cursor.execute(
-            "INSERT INTO produtos (codigo_barras, nome, preco_venda, estoque_atual) VALUES (?, ?, ?, ?)",
-            ("78910002", "Bolo de Cenoura com Chocolate", 8.50, 25)
+        exemplos = [
+            ("78910001", "Chocolate Joaozinho", "Chocolate Branco", "Chocolate Joaozinho - Chocolate Branco", 6.50, 50),
+            ("78910002", "Chocolate Joaozinho", "Chocolate com Amêndoas", "Chocolate Joaozinho - Chocolate com Amêndoas", 7.50, 40),
+            ("78910003", "Chocolate Joaozinho", "Ao Leite Tradicional", "Chocolate Joaozinho - Ao Leite Tradicional", 6.00, 60),
+            ("78920001", "Brigadeiro Gourmet", "Tradicional", "Brigadeiro Gourmet - Tradicional", 4.00, 100)
+        ]
+        cursor.executemany(
+            "INSERT INTO produtos (codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?, ?)",
+            exemplos
         )
         
     conn.commit()
     conn.close()
 
-# Inicializa as tabelas locais
 inicializar_banco_isolado()
 
 # Gerenciamento de estado da sessão
@@ -95,12 +139,15 @@ if "user_cargo" not in st.session_state:
     st.session_state.user_cargo = ""
 if "carrinho_novo" not in st.session_state:
     st.session_state.carrinho_novo = []
+if "ultimo_recibo" not in st.session_state:
+    st.session_state.ultimo_recibo = None
 
 # ==============================================================================
-# TELA DE LOGIN
+# TELA DE LOGIN COM LOGO CENTRALIZADO
 # ==============================================================================
 if not st.session_state.autenticado:
-    st.markdown("<h2 style='text-align: center;'>🛒 Doce Vida PDV - Acesso </h2>", unsafe_allow_html=True)
+    exibir_logo_centralizado(largura=200)
+    st.markdown("<h2 style='text-align: center;'>🛒 Dominus PDV - Acesso ao Sistema</h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
@@ -129,57 +176,84 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ==============================================================================
-# MENU LATERAL DE NAVEGAÇÃO
+# MENU LATERAL COM LOGO CENTRALIZADO
 # ==============================================================================
-st.sidebar.title("🧭 Menu Principal")
-st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_cargo})")
-st.sidebar.markdown("---")
+with st.sidebar:
+    if os.path.exists("logo_empresa.png"):
+        col_s1, col_s2, col_s3 = st.columns([0.5, 2, 0.5])
+        with col_s2:
+            st.image("logo_empresa.png", use_container_width=True)
+            
+    st.markdown("<h3 style='text-align: center;'>🧭 Menu Principal</h3>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;'>👤 <b>{st.session_state.user_nome}</b> ({st.session_state.user_cargo})</p>", unsafe_allow_html=True)
+    st.markdown("---")
 
-menu = st.sidebar.radio("Selecione o Módulo:", [
-    "🛒 Frente de Caixa (PDV)", 
-    "📦 Almoxarifado / Estoque", 
-    "👥 Cadastros (Clientes/Equipe)",
-    "📊 Relatórios de Vendas"
-])
+    menu = st.radio("Selecione o Módulo:", [
+        "🛒 Frente de Caixa (PDV)", 
+        "📦 Almoxarifado / Estoque", 
+        "👥 Cadastros (Clientes/Equipe)",
+        "📊 Relatórios de Vendas"
+    ])
 
-st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    st.session_state.autenticado = False
-    st.session_state.carrinho_novo = []
-    st.rerun()
-
+    st.markdown("---")
+    if st.button("🚪 Sair do Sistema", use_container_width=True):
+        st.session_state.autenticado = False
+        st.session_state.carrinho_novo = []
+        st.session_state.ultimo_recibo = None
+        st.rerun()
 # ==============================================================================
-# MÓDULO 1: PDV DEDICADO COM LISTA DE MERCADORIAS E LEITOR
+# MÓDULO 1: PDV DEDICADO (PRODUTO BASE + VARIAÇÃO + EMISSÃO DE RECIBO)
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Doce Vida - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Dominus - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
     
-    # Busca produtos cadastrados para preencher a lista de escolha
+    # Busca produtos cadastrados para montar a seleção em cascata (Produto Base -> Variação)
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT codigo_barras, nome, preco_venda, estoque_atual FROM produtos ORDER BY nome ASC")
+    cursor.execute("SELECT codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual FROM produtos ORDER BY produto_base ASC, variacao ASC")
     lista_produtos_db = cursor.fetchall()
     conn.close()
 
-    # Monta dicionário formatado para o selectbox
-    opcoes_lista = {"-- Selecione na lista ou use o leitor ao lado --": None}
-    for cod, nome, preco, est in lista_produtos_db:
-        label = f"{nome} | Cód: {cod} | R$ {preco:.2f} (Est: {est})"
-        opcoes_lista[label] = cod
+    # Agrupa variações por Produto Base
+    produtos_agrupados = {}
+    for cod, base, var, nome_comp, preco, est in lista_produtos_db:
+        if base not in produtos_agrupados:
+            produtos_agrupados[base] = []
+        produtos_agrupados[base].append({
+            "codigo": cod,
+            "variacao": var,
+            "nome_completo": nome_comp,
+            "preco": preco,
+            "estoque": est
+        })
 
     col_principal, col_botoes = st.columns([3.5, 1.0])
     
     with col_principal:
-        with st.form("form_busca_pdv", clear_on_submit=True):
-            # Linha 1: Leitor de código de barras + Lista suspensa pesquisável
-            col_l1, col_l2 = st.columns([1.2, 2.3])
-            with col_l1:
-                input_codigo = st.text_input("🔫 Leitor (Cód. Barras / Nome):")
-            with col_l2:
-                produto_selecionado = st.selectbox("📋 Escolher Mercadoria da Lista:", options=list(opcoes_lista.keys()))
+        # Seleção em Cascata fora do form para atualizar as variações dinamicamente ao trocar o Produto Base
+        st.markdown("##### 📦 Seleção de Mercadoria")
+        col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.4, 1.4])
+        
+        with col_sel1:
+            input_codigo = st.text_input("🔫 Leitor (Cód. Barras):", key="pdv_cod_barras")
+        with col_sel2:
+            lista_bases = ["-- Escolha o Produto Base --"] + list(produtos_agrupados.keys())
+            base_escolhida = st.selectbox("1. Produto / Linha:", options=lista_bases, key="pdv_base")
+        with col_sel3:
+            if base_escolhida != "-- Escolha o Produto Base --":
+                opcoes_var = {
+                    f"{v['variacao']} | R$ {v['preco']:.2f} (Est: {v['estoque']})": v["codigo"]
+                    for v in produtos_agrupados[base_escolhida]
+                }
+                var_label = st.selectbox("2. Variação / Sabor:", options=list(opcoes_var.keys()), key="pdv_var")
+                codigo_da_lista = opcoes_var[var_label]
+            else:
+                st.selectbox("2. Variação / Sabor:", options=["-- Selecione o produto base primeiro --"], disabled=True)
+                codigo_da_lista = None
 
-            # Linha 2: Quantidade, Desconto e Botão Lançar
-            col_b1, col_b2, col_b3 = st.columns([1.0, 1.0, 1.5])
+        # Formulário de lançamento (Quantidade e Desconto do Item)
+        with st.form("form_lancar_item", clear_on_submit=True):
+            col_b1, col_b2, col_b3 = st.columns([1.0, 1.0, 2.0])
             with col_b1:
                 qtd_item = st.number_input("Quantidade:", min_value=1, value=1, step=1)
             with col_b2:
@@ -187,11 +261,10 @@ if menu == "🛒 Frente de Caixa (PDV)":
             with col_b3:
                 st.write("")
                 st.write("")
-                btn_adicionar = st.form_submit_button("➕ Lançar no Cupom", use_container_width=True)
+                btn_adicionar = st.form_submit_button("➕ Lançar Item no Cupom", use_container_width=True)
 
-        # Prioriza o campo de leitura se digitado; caso contrário, usa a escolha da lista
         if btn_adicionar:
-            termo_busca = input_codigo.strip() if input_codigo.strip() else opcoes_lista[produto_selecionado]
+            termo_busca = input_codigo.strip() if input_codigo.strip() else codigo_da_lista
             
             if termo_busca:
                 conn = sqlite3.connect(DB_NAME)
@@ -206,7 +279,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 
                 if prod_achado:
                     cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
-                    
                     qtd_no_carrinho = sum(
                         item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
                     )
@@ -230,7 +302,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 else:
                     st.error(f"❌ Produto '{termo_busca}' não encontrado.")
             else:
-                st.warning("⚠️ Bipe um código ou selecione uma mercadoria na lista antes de lançar.")
+                st.warning("⚠️ Bipe um código de barras ou selecione o Produto Base e a Variação.")
 
         # Tabela do Cupom Atual
         st.subheader("🧾 Itens da Venda")
@@ -247,7 +319,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 }
             )
         else:
-            st.info("Caixa Livre. Escolha um produto na lista ou use o leitor acima.")
+            st.info("Caixa Livre. Selecione o produto e a variação acima ou bipe o código de barras.")
 
         st.markdown("---")
 
@@ -299,7 +371,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
         with col_res3:
             st.warning(f"**Troco:** R$ {troco:.2f}")
 
-    # Painel Lateral Direito de Comandos
+    # Painel Lateral Direito de Comandos e Exibição de Recibo
     with col_botoes:
         st.markdown("<div style='background-color:#1e3d59; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;'>COMANDOS DO CAIXA</div>", unsafe_allow_html=True)
         st.write("")
@@ -332,6 +404,8 @@ if menu == "🛒 Frente de Caixa (PDV)":
             disabled=not tem_itens
         )
 
+        # Ação: Finalizar Venda, Salvar no Banco e Gerar Recibo
+                # Ação: Finalizar Venda, Salvar no Banco e Gerar Recibo
         if btn_finalizar:
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
@@ -349,26 +423,44 @@ if menu == "🛒 Frente de Caixa (PDV)":
             if val_credito > 0: formas_usadas.append(f"Crédito: R$ {val_credito:.2f}")
             str_pagamento = " | ".join(formas_usadas)
             
+            data_agora = datetime.now().strftime("%d/%m/%Y %H:%M")
             desconto_geral_aplicado = descontos_itens + desc_total_venda
+            
             cursor.execute("""
                 INSERT INTO vendas (data_hora, subtotal, desconto_total, total, forma_pagamento) 
                 VALUES (?, ?, ?, ?, ?)
             """, (
-                datetime.now().strftime("%d/%m/%Y %H:%M"), 
+                data_agora, 
                 subtotal, 
                 desconto_geral_aplicado, 
                 total_compra, 
                 str_pagamento
             ))
+            num_cupom_gerado = cursor.lastrowid
             
             conn.commit()
             conn.close()
             
+            # Gera o recibo formatado e salva na sessão para exibição/download
+            st.session_state.ultimo_recibo = {
+                "numero": num_cupom_gerado,
+                "texto": gerar_texto_recibo(
+                    num_cupom_gerado,
+                    data_agora,
+                    st.session_state.carrinho_novo,
+                    subtotal,
+                    desconto_geral_aplicado,
+                    total_compra,
+                    str_pagamento,
+                    total_recebido,
+                    troco
+                )
+            }
+            
             st.session_state.carrinho_novo = []
-            st.success("🎉 Venda finalizada e salva com sucesso!")
+            st.toast("🎉 Venda concluída e recibo gerado!")
             st.rerun()
 
-        # Ação: Cancelar Item
         if btn_cancelar_item:
             st.session_state.carrinho_novo = [
                 item for item in st.session_state.carrinho_novo if item["Seq"] != idx_cancelar
@@ -378,27 +470,44 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.toast(f"Item {idx_cancelar} removido do cupom.")
             st.rerun()
 
-        # Ação: Cancelar Venda
         if btn_cancelar_venda:
             st.session_state.carrinho_novo = []
             st.toast("Venda cancelada.")
             st.rerun()
 
+        # Exibe o Recibo Gerado logo abaixo dos comandos após concluir a venda
+        if st.session_state.ultimo_recibo:
+            st.markdown("---")
+            st.success(f"🧾 Recibo Cupom #{st.session_state.ultimo_recibo['numero']:06d}")
+            st.code(st.session_state.ultimo_recibo["texto"], language="text")
+            st.download_button(
+                label="📥 Baixar / Imprimir Recibo (.txt)",
+                data=st.session_state.ultimo_recibo["texto"],
+                file_name=f"recibo_cupom_{st.session_state.ultimo_recibo['numero']:06d}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+            if st.button("🗑️ Fechar Recibo", use_container_width=True):
+                st.session_state.ultimo_recibo = None
+                st.rerun()
+
 # ==============================================================================
-# MÓDULO 2: ALMOXARIFADO / ESTOQUE
+# MÓDULO 2: ALMOXARIFADO / ESTOQUE (COM PRODUTO BASE E VARIAÇÕES)
 # ==============================================================================
 elif menu == "📦 Almoxarifado / Estoque":
-    st.header("Almoxarifado (Entradas e Saídas)")
+    st.header("Gestão Central de Almoxarifado (Produtos e Variações)")
     
     conn = sqlite3.connect(DB_NAME)
     df_almoxarifado = pd.read_sql_query("""
         SELECT id, 
                codigo_barras AS [Cód. Barras], 
-               nome AS [Nome do Produto], 
+               produto_base AS [Produto Base],
+               variacao AS [Variação / Sabor],
                preco_venda AS [Preço de Venda (R$)], 
                estoque_atual AS [Estoque Atual], 
                estoque_minimo AS [Estoque Mínimo] 
         FROM produtos
+        ORDER BY produto_base ASC, variacao ASC
     """, conn)
     conn.close()
     
@@ -408,39 +517,43 @@ elif menu == "📦 Almoxarifado / Estoque":
     col_alm1, col_alm2 = st.columns(2)
     
     with col_alm1:
-        with st.expander("➕ Dar Entrada de Mercadoria (Abastecimento)", expanded=True):
+        with st.expander("➕ Cadastrar / Abastecer Produto e Variação", expanded=True):
             with st.form("entrada_produtos"):
-                c_barras = st.text_input("Código de Barras do Lote")
-                c_nome = st.text_input("Nome Comercial do Produto")
+                c_barras = st.text_input("Código de Barras Único")
+                c_base = st.text_input("Produto Base / Linha (Ex: Chocolate Joaozinho)")
+                c_var = st.text_input("Variação / Sabor (Ex: Chocolate Branco, Com Amêndoas)")
                 c_preco = st.number_input("Preço de Venda Praticado (R$)", min_value=0.0, format="%.2f")
                 c_qtd = st.number_input("Quantidade Recebida (Entrada)", min_value=1, step=1)
                 btn_salvar_estoque = st.form_submit_button("Confirmar Entrada")
                 
                 if btn_salvar_estoque:
-                    if c_barras.strip() and c_nome.strip() and c_preco > 0:
+                    if c_barras.strip() and c_base.strip() and c_var.strip() and c_preco > 0:
+                        nome_completo = f"{c_base.strip()} - {c_var.strip()}"
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
                         cursor.execute("""
-                            INSERT INTO produtos (codigo_barras, nome, preco_venda, estoque_atual)
-                            VALUES (?, ?, ?, ?)
+                            INSERT INTO produtos (codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             ON CONFLICT(codigo_barras) DO UPDATE SET
                             estoque_atual = estoque_atual + excluded.estoque_atual,
                             preco_venda = excluded.preco_venda,
+                            produto_base = excluded.produto_base,
+                            variacao = excluded.variacao,
                             nome = excluded.nome
-                        """, (c_barras.strip(), c_nome.strip(), c_preco, c_qtd))
+                        """, (c_barras.strip(), c_base.strip(), c_var.strip(), nome_completo, c_preco, c_qtd))
                         conn.commit()
                         conn.close()
-                        st.success(f"📦 Lote de '{c_nome}' integrado ao Almoxarifado!")
+                        st.success(f"📦 '{nome_completo}' integrado ao Almoxarifado!")
                         st.rerun()
                     else:
-                        st.error("⚠️ Preencha todos os campos corretamente antes de salvar.")
+                        st.error("⚠️ Preencha todos os campos (Código, Produto Base, Variação e Preço).")
 
     with col_alm2:
         with st.expander("🚨 Alertas de Estoque Crítico (Mínimo)", expanded=True):
             conn = sqlite3.connect(DB_NAME)
             df_critico = pd.read_sql_query("""
                 SELECT codigo_barras AS [Código], 
-                       nome AS [Produto], 
+                       nome AS [Produto / Variação], 
                        estoque_atual AS [Qtd Atual], 
                        estoque_minimo AS [Qtd Mínima] 
                 FROM produtos 
@@ -449,7 +562,7 @@ elif menu == "📦 Almoxarifado / Estoque":
             conn.close()
             
             if not df_critico.empty:
-                st.warning("Os seguintes produtos precisam de reposição urgente:")
+                st.warning("Os seguintes itens precisam de reposição urgente:")
                 st.dataframe(df_critico, use_container_width=True, hide_index=True)
             else:
                 st.success("✅ Todos os produtos estão com níveis de estoque seguros!")
@@ -497,6 +610,12 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
             f_cargo = st.selectbox("Cargo Operacional", ["Operador de Caixa", "Gerente", "Almoxarife"])
             btn_func = st.form_submit_button("Salvar Novo Funcionário")
             
+            if btn_func:
+                if f_nome.strip() and f_user.strip() and f_senha.strip():
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute(
             if btn_func:
                 if f_nome.strip() and f_user.strip() and f_senha.strip():
                     conn = sqlite3.connect(DB_NAME)
