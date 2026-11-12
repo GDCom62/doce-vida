@@ -245,21 +245,28 @@ with st.sidebar:
         st.session_state.ultimo_recibo = None
         st.rerun()
 # ==============================================================================
-# MÓDULO 1: PDV DEDICADO (PRODUTO BASE + VARIAÇÃO + EMISSÃO DE RECIBO)
+# MÓDULO 1: PDV OTIMIZADO (INTERFACE LIMPA E ACESSÍVEL)
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Dominus - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
-    
-    # Busca produtos cadastrados para montar a seleção em cascata (Produto Base -> Variação)
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual FROM produtos ORDER BY produto_base ASC, variacao ASC")
-    lista_produtos_db = cursor.fetchall()
-    conn.close()
+    # Estilo visual para aumentar fontes, espaçamento e botões (Foco em Acessibilidade)
+    st.markdown("""
+        <style>
+        .stSelectbox label, .stTextInput label, .stNumberInput label {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1e3d59 !important;
+        }
+        .stButton button {
+            min-height: 52px !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # Agrupa variações por Produto Base
-    produtos_agrupados = {}
-        # Busca produtos cadastrados para montar a seleção em cascata (Produto Base -> Variação)
+    st.markdown("<h1 style='text-align: center; color: #1e3d59; font-size: 32px;'>🛒 Caixa - Frente de Loja</h1>", unsafe_allow_html=True)
+    
+    # Busca produtos cadastrados
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
@@ -275,7 +282,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
     lista_produtos_db = cursor.fetchall()
     conn.close()
 
-    # Agrupa variações por Produto Base
     produtos_agrupados = {}
     for cod, base, var, nome_comp, preco, est in lista_produtos_db:
         if base not in produtos_agrupados:
@@ -288,45 +294,42 @@ if menu == "🛒 Frente de Caixa (PDV)":
             "estoque": est
         })
 
-    col_principal, col_botoes = st.columns([3.5, 1.0])
-    
-    with col_principal:
-        # Seleção em Cascata fora do form para atualizar as variações dinamicamente ao trocar o Produto Base
-        st.markdown("##### 📦 Seleção de Mercadoria")
-        col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.4, 1.4])
-        
+    # -------------------- PASSO 1: SELEÇÃO DO PRODUTO --------------------
+    st.markdown("### 1️⃣ Escolher Produto")
+    with st.container(border=True):
+        col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.5, 1.5])
         with col_sel1:
-            input_codigo = st.text_input("🔫 Leitor (Cód. Barras):", key="pdv_cod_barras")
+            input_codigo = st.text_input("🔫 Código de Barras:", key="pdv_cod_barras", placeholder="Bipe ou digite...")
         with col_sel2:
-            lista_bases = ["-- Escolha o Produto Base --"] + list(produtos_agrupados.keys())
-            base_escolhida = st.selectbox("1. Produto / Linha:", options=lista_bases, key="pdv_base")
+            lista_bases = ["-- Selecione o Produto --"] + list(produtos_agrupados.keys())
+            base_escolhida = st.selectbox("Produto:", options=lista_bases, key="pdv_base")
         with col_sel3:
-            if base_escolhida != "-- Escolha o Produto Base --":
+            if base_escolhida != "-- Selecione o Produto --":
                 opcoes_var = {
-                    f"{v['variacao']} | R$ {v['preco']:.2f} (Est: {v['estoque']})": v["codigo"]
+                    f"{v['variacao']} — R$ {v['preco']:.2f}": v["codigo"]
                     for v in produtos_agrupados[base_escolhida]
                 }
-                var_label = st.selectbox("2. Variação / Sabor:", options=list(opcoes_var.keys()), key="pdv_var")
+                var_label = st.selectbox("Tipo / Sabor:", options=list(opcoes_var.keys()), key="pdv_var")
                 codigo_da_lista = opcoes_var[var_label]
             else:
-                st.selectbox("2. Variação / Sabor:", options=["-- Selecione o produto base primeiro --"], disabled=True)
+                st.selectbox("Tipo / Sabor:", options=["-- Escolha o produto ao lado --"], disabled=True)
                 codigo_da_lista = None
 
-        # Formulário de lançamento (Quantidade e Desconto do Item)
         with st.form("form_lancar_item", clear_on_submit=True):
-            col_b1, col_b2, col_b3 = st.columns([1.0, 1.0, 2.0])
-            with col_b1:
+            col_q1, col_q2 = st.columns([1.0, 2.5])
+            with col_q1:
                 qtd_item = st.number_input("Quantidade:", min_value=1, value=1, step=1)
-            with col_b2:
-                desconto_item = st.number_input("Desconto Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
-            with col_b3:
+            with col_q2:
                 st.write("")
                 st.write("")
-                btn_adicionar = st.form_submit_button("➕ Lançar Item no Cupom", use_container_width=True)
+                btn_adicionar = st.form_submit_button("➕ ADICIONAR NA COMPRA", type="primary", use_container_width=True)
+            
+            # Desconto por item guardado para não poluir a visão principal
+            with st.expander("🏷️ Aplicar desconto apenas neste item (Opcional)"):
+                desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
 
         if btn_adicionar:
             termo_busca = input_codigo.strip() if input_codigo.strip() else codigo_da_lista
-            
             if termo_busca:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
@@ -343,10 +346,8 @@ if menu == "🛒 Frente de Caixa (PDV)":
                     qtd_no_carrinho = sum(
                         item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
                     )
-                    
                     if estoque_disp >= (qtd_item + qtd_no_carrinho):
                         v_tot = max(0.0, (v_unit * qtd_item) - desconto_item)
-                        
                         st.session_state.carrinho_novo.append({
                             "Seq": len(st.session_state.carrinho_novo) + 1,
                             "Código": cod_barras,
@@ -356,51 +357,78 @@ if menu == "🛒 Frente de Caixa (PDV)":
                             "Desconto Item": float(desconto_item),
                             "Valor Total": float(v_tot)
                         })
-                        st.toast(f"✅ {nome_prod} adicionado ao cupom!")
+                        st.toast(f"✅ {nome_prod} adicionado!")
                         st.rerun()
                     else:
-                        st.warning(f"⚠️ Estoque insuficiente para '{nome_prod}'. Disponível: {estoque_disp} un.")
+                        st.warning(f"⚠️ Estoque insuficiente. Disponível: {estoque_disp} un.")
                 else:
-                    st.error(f"❌ Produto '{termo_busca}' não encontrado.")
+                    st.error("❌ Produto não encontrado.")
             else:
-                st.warning("⚠️ Bipe um código de barras ou selecione o Produto Base e a Variação.")
+                st.warning("⚠️ Escolha um produto na lista ou use o leitor.")
 
-        # Tabela do Cupom Atual
-        st.subheader("🧾 Itens da Venda")
+    # -------------------- PASSO 2: ITENS DA COMPRA --------------------
+    st.markdown("### 2️⃣ Itens da Compra")
+    with st.container(border=True):
         if st.session_state.carrinho_novo:
             df_cart = pd.DataFrame(st.session_state.carrinho_novo)
+            # Exibe apenas as colunas essenciais para facilitar a leitura
+            colunas_visiveis = ["Seq", "Descrição do Produto", "Quantidade", "Valor Unitário", "Valor Total"]
             st.dataframe(
-                df_cart,
+                df_cart[colunas_visiveis],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Valor Unitário": st.column_config.NumberColumn(format="R$ %.2f"),
-                    "Desconto Item": st.column_config.NumberColumn(format="R$ %.2f"),
-                    "Valor Total": st.column_config.NumberColumn(format="R$ %.2f"),
+                    "Seq": st.column_config.NumberColumn("Nº", width="small"),
+                    "Valor Unitário": st.column_config.NumberColumn("Preço Un.", format="R$ %.2f"),
+                    "Valor Total": st.column_config.NumberColumn("Total", format="R$ %.2f"),
                 }
             )
+            
+            # Opções de cancelamento recolhidas para evitar cliques acidentais
+            with st.expander("🗑️ Precisa cancelar algum item ou limpar a venda?"):
+                col_c1, col_c2, col_c3 = st.columns([1.0, 1.5, 1.5])
+                with col_c1:
+                    max_seq = max(len(st.session_state.carrinho_novo), 1)
+                    idx_cancelar = st.number_input("Nº do Item:", min_value=1, max_value=max_seq, step=1)
+                with col_c2:
+                    st.write("")
+                    st.write("")
+                    if st.button("⚠️ Remover Item", use_container_width=True):
+                        st.session_state.carrinho_novo = [
+                            item for item in st.session_state.carrinho_novo if item["Seq"] != idx_cancelar
+                        ]
+                        for i, item in enumerate(st.session_state.carrinho_novo):
+                            item["Seq"] = i + 1
+                        st.rerun()
+                with col_c3:
+                    st.write("")
+                    st.write("")
+                    if st.button("❌ Cancelar Toda Venda", use_container_width=True):
+                        st.session_state.carrinho_novo = []
+                        st.rerun()
         else:
-            st.info("Caixa Livre. Selecione o produto e a variação acima ou bipe o código de barras.")
+            st.info("Nenhum item adicionado ainda.")
 
-        st.markdown("---")
-
-        # Totais e Desconto Geral
+    # -------------------- PASSO 3: PAGAMENTO E FECHAMENTO --------------------
+    st.markdown("### 3️⃣ Pagamento e Fechamento")
+    with st.container(border=True):
         subtotal = sum(item["Quantidade"] * item["Valor Unitário"] for item in st.session_state.carrinho_novo)
         descontos_itens = sum(item["Desconto Item"] for item in st.session_state.carrinho_novo)
         
-        col_tot1, col_tot2, col_tot3 = st.columns(3)
-        with col_tot1:
-            st.metric("SUBTOTAL", f"R$ {subtotal:.2f}")
-        with col_tot2:
-            desc_total_venda = st.number_input("Desconto no Total da Venda (R$):", min_value=0.0, value=0.0, step=1.0, format="%.2f")
-        with col_tot3:
-            total_compra = max(0.0, subtotal - descontos_itens - desc_total_venda)
-            st.metric("VALOR TOTAL DA COMPRA", f"R$ {total_compra:.2f}")
+        with st.expander("🏷️ Dar desconto no valor total da compra (Opcional)"):
+            desc_total_venda = st.number_input("Desconto Total (R$):", min_value=0.0, value=0.0, step=1.0, format="%.2f")
+            
+        total_compra = max(0.0, subtotal - descontos_itens - desc_total_venda)
 
-        st.markdown("---")
+        # Destaque visual grande para o Total a Pagar
+        st.markdown(
+            f"<div style='background-color:#e8f4f8; padding:18px; border-radius:10px; border: 2px solid #1e3d59; text-align:center; margin-bottom:20px;'>"
+            f"<span style='font-size:20px; color:#1e3d59; font-weight:bold;'>TOTAL A PAGAR</span><br>"
+            f"<span style='font-size:42px; color:#0b5394; font-weight:900;'>R$ {total_compra:.2f}</span>"
+            f"</div>", 
+            unsafe_allow_html=True
+        )
 
-        # Formas de Pagamento
-        st.subheader("💳 Formas de Pagamento")
         col_p1, col_p2, col_p3, col_p4 = st.columns(4)
         with col_p1:
             val_dinheiro = st.number_input("💵 Dinheiro (R$)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
@@ -414,63 +442,38 @@ if menu == "🛒 Frente de Caixa (PDV)":
         total_recebido = val_dinheiro + val_pix + val_debito + val_credito
         pagamentos_eletronicos = val_pix + val_debito + val_credito
         valor_restante = max(0.0, total_compra - total_recebido)
-        
+        excesso_eletronico = pagamentos_eletronicos > (total_compra + 0.009)
+        total_recebido = val_dinheiro + val_pix + val_debito + val_credito
+        pagamentos_eletronicos = val_pix + val_debito + val_credito
+        valor_restante = max(0.0, total_compra - total_recebido)
         excesso_eletronico = pagamentos_eletronicos > (total_compra + 0.009)
         troco = max(0.0, total_recebido - total_compra) if (total_compra > 0 and not excesso_eletronico) else 0.0
 
         st.write("")
-        col_res1, col_res2, col_res3 = st.columns(3)
+        col_res1, col_res2 = st.columns(2)
         with col_res1:
-            st.info(f"**Valor Recebido:** R$ {total_recebido:.2f}")
-        with col_res2:
             if excesso_eletronico:
-                st.error("⚠️ Pix/Cartão excede o total!")
+                st.error("⚠️ Valor no Pix/Cartão maior que o total!")
             elif valor_restante > 0.009:
-                st.error(f"**Valor Restante:** R$ {valor_restante:.2f}")
-            else:
-                st.success("**Status:** Pagamento Completo")
-        with col_res3:
-            st.warning(f"**Troco:** R$ {troco:.2f}")
+                st.warning(f"⏳ **Falta Receber:** R$ {valor_restante:.2f}")
+            elif total_compra > 0:
+                st.success("✅ **Valor Completo!**")
+        with col_res2:
+            if troco > 0:
+                st.markdown(
+                    f"<div style='background-color:#fff3cd; padding:12px; border-radius:8px; border: 2px solid #ffc107; text-align:center;'>"
+                    f"<span style='font-size:18px; font-weight:bold; color:#856404;'>TROCO A DEVOLVER: R$ {troco:.2f}</span>"
+                    f"</div>", 
+                    unsafe_allow_html=True
+                )
 
-    # Painel Lateral Direito de Comandos e Exibição de Recibo
-    with col_botoes:
-        st.markdown("<div style='background-color:#1e3d59; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;'>COMANDOS DO CAIXA</div>", unsafe_allow_html=True)
         st.write("")
-        
         tem_itens = len(st.session_state.carrinho_novo) > 0
         pagamento_ok = (total_compra > 0) and (valor_restante <= 0.009) and (not excesso_eletronico)
 
-        btn_finalizar = st.button(
-            "✅ FINALIZAR VENDA", 
-            type="primary", 
-            use_container_width=True, 
-            disabled=not (tem_itens and pagamento_ok)
-        )
-        
-        st.markdown("---")
-        
-        max_seq = max(len(st.session_state.carrinho_novo), 1)
-        idx_cancelar = st.number_input("Nº Seq. do Item:", min_value=1, max_value=max_seq, step=1, disabled=not tem_itens)
-        btn_cancelar_item = st.button(
-            "⚠️ CANCELAR ITEM", 
-            use_container_width=True, 
-            disabled=not tem_itens
-        )
-        
-        st.markdown("---")
-        
-        btn_cancelar_venda = st.button(
-            "❌ CANCELAR VENDA", 
-            use_container_width=True, 
-            disabled=not tem_itens
-        )
-
-        # Ação: Finalizar Venda, Salvar no Banco e Gerar Recibo
-                # Ação: Finalizar Venda, Salvar no Banco e Gerar Recibo
-        if btn_finalizar:
+        if st.button("✅ FINALIZAR VENDA E GERAR RECIBO", type="primary", use_container_width=True, disabled=not (tem_itens and pagamento_ok)):
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            
             for item in st.session_state.carrinho_novo:
                 cursor.execute(
                     "UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", 
@@ -490,67 +493,44 @@ if menu == "🛒 Frente de Caixa (PDV)":
             cursor.execute("""
                 INSERT INTO vendas (data_hora, subtotal, desconto_total, total, forma_pagamento) 
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                data_agora, 
-                subtotal, 
-                desconto_geral_aplicado, 
-                total_compra, 
-                str_pagamento
-            ))
+            """, (data_agora, subtotal, desconto_geral_aplicado, total_compra, str_pagamento))
             num_cupom_gerado = cursor.lastrowid
             
             conn.commit()
             conn.close()
             
-            # Gera o recibo formatado e salva na sessão para exibição/download
             st.session_state.ultimo_recibo = {
                 "numero": num_cupom_gerado,
                 "texto": gerar_texto_recibo(
-                    num_cupom_gerado,
-                    data_agora,
-                    st.session_state.carrinho_novo,
-                    subtotal,
-                    desconto_geral_aplicado,
-                    total_compra,
-                    str_pagamento,
-                    total_recebido,
-                    troco
+                    num_cupom_gerado, data_agora, st.session_state.carrinho_novo,
+                    subtotal, desconto_geral_aplicado, total_compra,
+                    str_pagamento, total_recebido, troco
                 )
             }
-            
             st.session_state.carrinho_novo = []
-            st.toast("🎉 Venda concluída e recibo gerado!")
             st.rerun()
 
-        if btn_cancelar_item:
-            st.session_state.carrinho_novo = [
-                item for item in st.session_state.carrinho_novo if item["Seq"] != idx_cancelar
-            ]
-            for i, item in enumerate(st.session_state.carrinho_novo):
-                item["Seq"] = i + 1
-            st.toast(f"Item {idx_cancelar} removido do cupom.")
-            st.rerun()
+    # Exibição do Recibo em destaque após finalizar
+    if st.session_state.ultimo_recibo:
+        with st.container(border=True):
+            st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
+            col_r1, col_r2 = st.columns([2, 1])
+            with col_r1:
+                st.code(st.session_state.ultimo_recibo["texto"], language="text")
+            with col_r2:
+                st.download_button(
+                    label="🖨️ Baixar / Imprimir Recibo",
+                    data=st.session_state.ultimo_recibo["texto"],
+                    file_name=f"recibo_{st.session_state.ultimo_recibo['numero']:06d}.txt",
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
+                st.write("")
+                if st.button("🆕 Iniciar Nova Venda", use_container_width=True):
+                    st.session_state.ultimo_recibo = None
+                    st.rerun()
 
-        if btn_cancelar_venda:
-            st.session_state.carrinho_novo = []
-            st.toast("Venda cancelada.")
-            st.rerun()
-
-        # Exibe o Recibo Gerado logo abaixo dos comandos após concluir a venda
-        if st.session_state.ultimo_recibo:
-            st.markdown("---")
-            st.success(f"🧾 Recibo Cupom #{st.session_state.ultimo_recibo['numero']:06d}")
-            st.code(st.session_state.ultimo_recibo["texto"], language="text")
-            st.download_button(
-                label="📥 Baixar / Imprimir Recibo (.txt)",
-                data=st.session_state.ultimo_recibo["texto"],
-                file_name=f"recibo_cupom_{st.session_state.ultimo_recibo['numero']:06d}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-            if st.button("🗑️ Fechar Recibo", use_container_width=True):
-                st.session_state.ultimo_recibo = None
-                st.rerun()
 
 # ==============================================================================
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE (COM PRODUTO BASE E VARIAÇÕES)
