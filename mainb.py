@@ -149,65 +149,88 @@ if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
     st.rerun()
 
 # ==============================================================================
-# MÓDULO 1: PDV DEDICADO (SEM CATÁLOGO LATERAL)
+# MÓDULO 1: PDV DEDICADO COM LISTA DE MERCADORIAS E LEITOR
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
     st.markdown("<h1 style='text-align: center; color: #1e3d59;'>Dominus - Frente de Caixa (PDV)</h1>", unsafe_allow_html=True)
     
+    # Busca produtos cadastrados para preencher a lista de escolha
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT codigo_barras, nome, preco_venda, estoque_atual FROM produtos ORDER BY nome ASC")
+    lista_produtos_db = cursor.fetchall()
+    conn.close()
+
+    # Monta dicionário formatado para o selectbox
+    opcoes_lista = {"-- Selecione na lista ou use o leitor ao lado --": None}
+    for cod, nome, preco, est in lista_produtos_db:
+        label = f"{nome} | Cód: {cod} | R$ {preco:.2f} (Est: {est})"
+        opcoes_lista[label] = cod
+
     col_principal, col_botoes = st.columns([3.5, 1.0])
     
     with col_principal:
-        # Formulário de busca e inserção rápida
         with st.form("form_busca_pdv", clear_on_submit=True):
-            col_b1, col_b2, col_b3, col_b4 = st.columns([2.5, 1.0, 1.0, 1.0])
-            with col_b1:
-                input_produto = st.text_input("🔍 Código de Barras ou Nome do Produto:")
-            with col_b2:
-                qtd_item = st.number_input("Qtd:", min_value=1, value=1, step=1)
-            with col_b3:
-                desconto_item = st.number_input("Desc. Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
-            with col_b4:
-                st.write("")
-                st.write("")
-                btn_adicionar = st.form_submit_button("➕ Lançar", use_container_width=True)
+            # Linha 1: Leitor de código de barras + Lista suspensa pesquisável
+            col_l1, col_l2 = st.columns([1.2, 2.3])
+            with col_l1:
+                input_codigo = st.text_input("🔫 Leitor (Cód. Barras / Nome):")
+            with col_l2:
+                produto_selecionado = st.selectbox("📋 Escolher Mercadoria da Lista:", options=list(opcoes_lista.keys()))
 
-        if btn_adicionar and input_produto.strip():
-            termo = input_produto.strip()
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT codigo_barras, nome, preco_venda, estoque_atual 
-                FROM produtos 
-                WHERE codigo_barras = ? OR nome LIKE ?
-            """, (termo, f"%{termo}%"))
-            prod_achado = cursor.fetchone()
-            conn.close()
+            # Linha 2: Quantidade, Desconto e Botão Lançar
+            col_b1, col_b2, col_b3 = st.columns([1.0, 1.0, 1.5])
+            with col_b1:
+                qtd_item = st.number_input("Quantidade:", min_value=1, value=1, step=1)
+            with col_b2:
+                desconto_item = st.number_input("Desconto Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
+            with col_b3:
+                st.write("")
+                st.write("")
+                btn_adicionar = st.form_submit_button("➕ Lançar no Cupom", use_container_width=True)
+
+        # Prioriza o campo de leitura se digitado; caso contrário, usa a escolha da lista
+        if btn_adicionar:
+            termo_busca = input_codigo.strip() if input_codigo.strip() else opcoes_lista[produto_selecionado]
             
-            if prod_achado:
-                cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
+            if termo_busca:
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT codigo_barras, nome, preco_venda, estoque_atual 
+                    FROM produtos 
+                    WHERE codigo_barras = ? OR nome LIKE ?
+                """, (termo_busca, f"%{termo_busca}%"))
+                prod_achado = cursor.fetchone()
+                conn.close()
                 
-                # Verifica quanto deste item já está no carrinho atual
-                qtd_no_carrinho = sum(
-                    item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
-                )
-                
-                if estoque_disp >= (qtd_item + qtd_no_carrinho):
-                    v_tot = max(0.0, (v_unit * qtd_item) - desconto_item)
+                if prod_achado:
+                    cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
                     
-                    st.session_state.carrinho_novo.append({
-                        "Seq": len(st.session_state.carrinho_novo) + 1,
-                        "Código": cod_barras,
-                        "Descrição do Produto": nome_prod,
-                        "Quantidade": qtd_item,
-                        "Valor Unitário": float(v_unit),
-                        "Desconto Item": float(desconto_item),
-                        "Valor Total": float(v_tot)
-                    })
-                    st.toast(f"✅ {nome_prod} adicionado ao cupom!")
+                    qtd_no_carrinho = sum(
+                        item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
+                    )
+                    
+                    if estoque_disp >= (qtd_item + qtd_no_carrinho):
+                        v_tot = max(0.0, (v_unit * qtd_item) - desconto_item)
+                        
+                        st.session_state.carrinho_novo.append({
+                            "Seq": len(st.session_state.carrinho_novo) + 1,
+                            "Código": cod_barras,
+                            "Descrição do Produto": nome_prod,
+                            "Quantidade": qtd_item,
+                            "Valor Unitário": float(v_unit),
+                            "Desconto Item": float(desconto_item),
+                            "Valor Total": float(v_tot)
+                        })
+                        st.toast(f"✅ {nome_prod} adicionado ao cupom!")
+                        st.rerun()
+                    else:
+                        st.warning(f"⚠️ Estoque insuficiente para '{nome_prod}'. Disponível: {estoque_disp} un.")
                 else:
-                    st.warning(f"⚠️ Estoque insuficiente para '{nome_prod}'. Disponível: {estoque_disp} un.")
+                    st.error(f"❌ Produto '{termo_busca}' não encontrado.")
             else:
-                st.error(f"❌ Produto '{termo}' não encontrado no estoque.")
+                st.warning("⚠️ Bipe um código ou selecione uma mercadoria na lista antes de lançar.")
 
         # Tabela do Cupom Atual
         st.subheader("🧾 Itens da Venda")
@@ -224,7 +247,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 }
             )
         else:
-            st.info("Caixa Livre. Bipe um código de barras ou digite o nome do produto acima.")
+            st.info("Caixa Livre. Escolha um produto na lista ou use o leitor acima.")
 
         st.markdown("---")
 
@@ -243,7 +266,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
 
         st.markdown("---")
 
-        # Formas de Pagamento (Aceita pagamento dividido)
+        # Formas de Pagamento
         st.subheader("💳 Formas de Pagamento")
         col_p1, col_p2, col_p3, col_p4 = st.columns(4)
         with col_p1:
@@ -255,12 +278,10 @@ if menu == "🛒 Frente de Caixa (PDV)":
         with col_p4:
             val_credito = st.number_input("💳 Crédito (R$)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
 
-        # Cálculos Financeiros Automáticos e Trava de Troco
         total_recebido = val_dinheiro + val_pix + val_debito + val_credito
         pagamentos_eletronicos = val_pix + val_debito + val_credito
         valor_restante = max(0.0, total_compra - total_recebido)
         
-        # Trava: Pagamentos eletrônicos não podem exceder o valor total da compra
         excesso_eletronico = pagamentos_eletronicos > (total_compra + 0.009)
         troco = max(0.0, total_recebido - total_compra) if (total_compra > 0 and not excesso_eletronico) else 0.0
 
@@ -286,7 +307,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
         tem_itens = len(st.session_state.carrinho_novo) > 0
         pagamento_ok = (total_compra > 0) and (valor_restante <= 0.009) and (not excesso_eletronico)
 
-        # Botão Finalizar Venda
         btn_finalizar = st.button(
             "✅ FINALIZAR VENDA", 
             type="primary", 
@@ -296,7 +316,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
         
         st.markdown("---")
         
-        # Cancelar Item Específico
         max_seq = max(len(st.session_state.carrinho_novo), 1)
         idx_cancelar = st.number_input("Nº Seq. do Item:", min_value=1, max_value=max_seq, step=1, disabled=not tem_itens)
         btn_cancelar_item = st.button(
@@ -307,26 +326,22 @@ if menu == "🛒 Frente de Caixa (PDV)":
         
         st.markdown("---")
         
-        # Cancelar Venda Inteira
         btn_cancelar_venda = st.button(
             "❌ CANCELAR VENDA", 
             use_container_width=True, 
             disabled=not tem_itens
         )
 
-        # Ação: Finalizar Venda e Salvar no Banco
         if btn_finalizar:
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             
-            # 1. Atualiza o estoque
             for item in st.session_state.carrinho_novo:
                 cursor.execute(
                     "UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", 
                     (item["Quantidade"], item["Código"])
                 )
             
-            # 2. Monta descrição detalhada das formas de pagamento
             formas_usadas = []
             if val_dinheiro > 0: formas_usadas.append(f"Dinheiro: R$ {val_dinheiro:.2f}")
             if val_pix > 0: formas_usadas.append(f"Pix: R$ {val_pix:.2f}")
@@ -334,7 +349,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
             if val_credito > 0: formas_usadas.append(f"Crédito: R$ {val_credito:.2f}")
             str_pagamento = " | ".join(formas_usadas)
             
-            # 3. Grava a venda na tabela 'vendas'
             desconto_geral_aplicado = descontos_itens + desc_total_venda
             cursor.execute("""
                 INSERT INTO vendas (data_hora, subtotal, desconto_total, total, forma_pagamento) 
@@ -369,6 +383,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.session_state.carrinho_novo = []
             st.toast("Venda cancelada.")
             st.rerun()
+
 # ==============================================================================
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE
 # ==============================================================================
