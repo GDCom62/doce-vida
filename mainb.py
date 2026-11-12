@@ -91,7 +91,15 @@ def inicializar_banco_isolado():
         estoque_atual INTEGER DEFAULT 0,
         estoque_minimo INTEGER DEFAULT 5
     )""")
+        # Migração automática: garante que colunas novas existam em bancos antigos
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas_existentes = [col[1] for col in cursor.fetchall()]
     
+    if "produto_base" not in colunas_existentes:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN produto_base TEXT DEFAULT 'Geral'")
+    if "variacao" not in colunas_existentes:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN variacao TEXT DEFAULT 'Padrão'")
+
     # 4. Tabela de Histórico de Vendas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vendas (
