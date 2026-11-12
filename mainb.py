@@ -616,12 +616,6 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
                     cursor = conn.cursor()
                     try:
                         cursor.execute(
-            if btn_func:
-                if f_nome.strip() and f_user.strip() and f_senha.strip():
-                    conn = sqlite3.connect(DB_NAME)
-                    cursor = conn.cursor()
-                    try:
-                        cursor.execute(
                             "INSERT INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)", 
                             (f_nome.strip(), f_user.strip(), f_senha.strip(), f_cargo)
                         )
