@@ -20,7 +20,6 @@ def exibir_logo_centralizado(largura=180):
         col_e, col_c, col_d = st.columns([1, 2, 1])
         with col_c:
             st.image("logo_empresa.png", width=largura)
-
 def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
 def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
     qtd_vendas = len(df_dia)
