@@ -894,10 +894,4 @@ elif menu == "📊 Relatórios de Vendas":
     else:
         st.info("Nenhuma venda realizada até o momento.")
         
-    st.markdown("---")
-    st.subheader("📋 Histórico Completo de Cupons Finalizados")
     
-    if not df_vendas_todas.empty:
-        st.dataframe(df_vendas_todas, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma venda realizada até o momento.")
