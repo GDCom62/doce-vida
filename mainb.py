@@ -22,6 +22,58 @@ def exibir_logo_centralizado(largura=180):
             st.image("logo_empresa.png", width=largura)
 
 def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
+    def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
+    qtd_vendas = len(df_dia)
+    subtotal_dia = df_dia["Subtotal (R$)"].sum()
+    descontos_dia = df_dia["Descontos (R$)"].sum()
+    total_dia = df_dia["Total Pago (R$)"].sum()
+
+    # Soma os valores por forma de pagamento a partir do texto registrado
+    totais_pgto = {"Dinheiro": 0.0, "Pix": 0.0, "Débito": 0.0, "Crédito": 0.0}
+    for registro in df_dia["Formas de Pagto"].dropna():
+        partes = registro.split("|")
+        for p in partes:
+            p = p.strip()
+            for forma in totais_pgto.keys():
+                if p.startswith(f"{forma}: R$"):
+                    try:
+                        valor = float(p.split("R$")[1].strip())
+                        totais_pgto[forma] += valor
+                    except ValueError:
+                        pass
+
+    linhas = [
+        "==========================================",
+        "    DOMINUS PDV - FECHAMENTO DE CAIXA     ",
+        "==========================================",
+        f"Data do Fechamento: {data_filtro}",
+        f"Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        "------------------------------------------",
+        f"QUANTIDADE DE VENDAS:        {qtd_vendas:04d} cupons",
+        f"SUBTOTAL BRUTO:               R$ {subtotal_dia:8.2f}",
+        f"TOTAL DE DESCONTOS:          -R$ {descontos_dia:8.2f}",
+        f"FATURAMENTO LÍQUIDO DO DIA:   R$ {total_dia:8.2f}",
+        "------------------------------------------",
+        "RESUMO POR FORMA DE PAGAMENTO:",
+        f"  Dinheiro:                   R$ {totais_pgto['Dinheiro']:8.2f}",
+        f"  Pix:                        R$ {totais_pgto['Pix']:8.2f}",
+        f"  Cartão de Débito:           R$ {totais_pgto['Débito']:8.2f}",
+        f"  Cartão de Crédito:          R$ {totais_pgto['Crédito']:8.2f}",
+        "------------------------------------------",
+        "CUPONS REGISTRADOS NO DIA:"
+    ]
+
+    for _, row in df_dia.iterrows():
+        hora = row["Data/Hora"].split(" ")[1] if " " in row["Data/Hora"] else ""
+        linhas.append(f"  #{int(row['Nº Cupom']):04d} ({hora}) - R$ {row['Total Pago (R$)']:7.2f}")
+
+    linhas.extend([
+        "==========================================",
+        "         CONFERÊNCIA DE CAIXA OK          ",
+        "=========================================="
+    ])
+    return "\n".join(linhas)
+
     linhas = [
         "==========================================",
         "           DOCE VIDA PDV - RECIBO           ",
@@ -670,40 +722,10 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
                     st.error("⚠️ Todos os campos de credenciais são obrigatórios.")
 
 # ==============================================================================
-# MÓDULO 4: RELATÓRIOS DE VENDAS COM GRÁFICO
+# MÓDULO 4: RELATÓRIOS DE VENDAS E FECHAMENTO DIÁRIO PARA IMPRESSÃO
 # ==============================================================================
 elif menu == "📊 Relatórios de Vendas":
-    st.header("Painel Gerencial - Visualização de Desempenho")
-    
-    conn = sqlite3.connect(DB_NAME)
-    df_faturamento = pd.read_sql_query("""
-        SELECT SUBSTR(data_hora, 1, 10) AS [Data], 
-               SUM(total) AS [Total Faturado (R$)] 
-        FROM vendas 
-        GROUP BY [Data] 
-        ORDER BY [Data] ASC
-    """, conn)
-    conn.close()
-    
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        total_acumulado = df_faturamento["Total Faturado (R$)"].sum() if not df_faturamento.empty else 0.0
-        st.metric(label="Faturamento Total Acumulado", value=f"R$ {total_acumulado:.2f}")
-    with col_m2:
-        total_dias = len(df_faturamento)
-        st.metric(label="Dias Operacionais Registrados", value=total_dias)
-        
-    st.markdown("---")
-    
-    st.subheader("📈 Evolução do Faturamento Diário")
-    if not df_faturamento.empty:
-        df_grafico = df_faturamento.set_index("Data")
-        st.line_chart(df_grafico, y="Total Faturado (R$)")
-    else:
-        st.info("Aguardando primeiras vendas para plotar o gráfico de desempenho.")
-        
-    st.markdown("---")
-    st.subheader("📋 Histórico Completo de Cupons Finalizados")
+    st.header("📊 Painel Gerencial e Fechamento do Dia")
     
     conn = sqlite3.connect(DB_NAME)
     df_vendas_todas = pd.read_sql_query("""
@@ -716,7 +738,74 @@ elif menu == "📊 Relatórios de Vendas":
         FROM vendas 
         ORDER BY id DESC
     """, conn)
+    
+    df_faturamento = pd.read_sql_query("""
+        SELECT SUBSTR(data_hora, 1, 10) AS [Data], 
+               SUM(total) AS [Total Faturado (R$)] 
+        FROM vendas 
+        GROUP BY [Data] 
+        ORDER BY [Data] ASC
+    """, conn)
     conn.close()
+
+    # -------------------- SEÇÃO DE IMPRESSÃO DO FECHAMENTO DO DIA --------------------
+    st.subheader("🖨️ Fechamento de Caixa para Impressão")
+    with st.container(border=True):
+        col_f1, col_f2 = st.columns([1.2, 2.0])
+        
+        with col_f1:
+            data_selecionada = st.date_input(
+                "Selecione o dia para fechar o caixa:", 
+                value=datetime.now().date(),
+                format="DD/MM/YYYY"
+            )
+            data_str = data_selecionada.strftime("%d/%m/%Y")
+            
+            # Filtra as vendas do dia escolhido
+            if not df_vendas_todas.empty:
+                df_dia = df_vendas_todas[df_vendas_todas["Data/Hora"].str.startswith(data_str)]
+            else:
+                df_dia = pd.DataFrame()
+
+            if not df_dia.empty:
+                texto_fechamento = gerar_relatorio_fechamento_dia(data_str, df_dia)
+                st.metric("Total Vendido no Dia", f"R$ {df_dia['Total Pago (R$)'].sum():.2f}")
+                st.download_button(
+                    label="🖨️ Baixar / Imprimir Fechamento (.txt)",
+                    data=texto_fechamento,
+                    file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
+            else:
+                st.info(f"Nenhuma venda registrada na data {data_str}.")
+
+        with col_f2:
+            if not df_dia.empty:
+                st.write("**Pré-visualização do Comprovante de Fechamento:**")
+                st.code(texto_fechamento, language="text")
+
+    st.markdown("---")
+
+    # -------------------- INDICADORES GERAIS E GRÁFICO --------------------
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        total_acumulado = df_faturamento["Total Faturado (R$)"].sum() if not df_faturamento.empty else 0.0
+        st.metric(label="Faturamento Total Acumulado", value=f"R$ {total_acumulado:.2f}")
+    with col_m2:
+        total_dias = len(df_faturamento)
+        st.metric(label="Dias Operacionais Registrados", value=total_dias)
+        
+    st.subheader("📈 Evolução do Faturamento Diário")
+    if not df_faturamento.empty:
+        df_grafico = df_faturamento.set_index("Data")
+        st.line_chart(df_grafico, y="Total Faturado (R$)")
+    else:
+        st.info("Aguardando primeiras vendas para plotar o gráfico de desempenho.")
+        
+    st.markdown("---")
+    st.subheader("📋 Histórico Completo de Cupons Finalizados")
     
     if not df_vendas_todas.empty:
         st.dataframe(df_vendas_todas, use_container_width=True, hide_index=True)
