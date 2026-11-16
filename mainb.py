@@ -788,8 +788,7 @@ elif menu == "📊 Relatórios de Vendas":
     with st.container(border=True):
         col_f1, col_f2 = st.columns([1.2, 2.0])
         
-    with col_f1:
-            # Ajusta para o fuso horário de Brasília (UTC-3)
+        with col_f1:
             from datetime import timedelta
             agora_br = datetime.utcnow() - timedelta(hours=3)
             
@@ -827,7 +826,6 @@ elif menu == "📊 Relatórios de Vendas":
                 use_container_width=True
             )
 
-            # Botão Verde de Impressão Direta (Sempre visível para facilitar o uso)
             texto_esc = texto_fechamento.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
             html_impressao = f"""
             <button onclick="imprimirRelatorio()" style="
@@ -866,9 +864,7 @@ elif menu == "📊 Relatórios de Vendas":
             """
             components.html(html_impressao, height=65)
 
-
-     with col_f2:
-        if not df_dia.empty:
+        with col_f2:
             st.write("**Pré-visualização do Comprovante de Fechamento:**")
             st.code(texto_fechamento, language="text")
 
@@ -889,6 +885,14 @@ elif menu == "📊 Relatórios de Vendas":
         st.line_chart(df_grafico, y="Total Faturado (R$)")
     else:
         st.info("Aguardando primeiras vendas para plotar o gráfico de desempenho.")
+        
+    st.markdown("---")
+    st.subheader("📋 Histórico Completo de Cupons Finalizados")
+    
+    if not df_vendas_todas.empty:
+        st.dataframe(df_vendas_todas, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma venda realizada até o momento.")
         
     st.markdown("---")
     st.subheader("📋 Histórico Completo de Cupons Finalizados")
