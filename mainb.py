@@ -22,7 +22,7 @@ def exibir_logo_centralizado(largura=180):
             st.image("logo_empresa.png", width=largura)
 
 def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
-    def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
+def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
     qtd_vendas = len(df_dia)
     subtotal_dia = df_dia["Subtotal (R$)"].sum()
     descontos_dia = df_dia["Descontos (R$)"].sum()
@@ -37,7 +37,7 @@ def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, 
             for forma in totais_pgto.keys():
                 if p.startswith(f"{forma}: R$"):
                     try:
-                        valor = float(p.split("R$")[1].strip())
+                        valor = float(p.split("R$").strip())
                         totais_pgto[forma] += valor
                     except ValueError:
                         pass
@@ -64,7 +64,7 @@ def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, 
     ]
 
     for _, row in df_dia.iterrows():
-        hora = row["Data/Hora"].split(" ")[1] if " " in row["Data/Hora"] else ""
+        hora = row["Data/Hora"].split(" ") if " " in row["Data/Hora"] else ""
         linhas.append(f"  #{int(row['Nº Cupom']):04d} ({hora}) - R$ {row['Total Pago (R$)']:7.2f}")
 
     linhas.extend([
