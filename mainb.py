@@ -17,17 +17,51 @@ DB_NAME = os.path.join("banco_dados", "estoque_loja_independente.db")
 
 def exibir_logo_centralizado(largura=180):
     if os.path.exists("logo_empresa.png"):
-        col_e, col_c, col_d = st.columns([1, 2, 1])
+        col_e, col_c, col_d = st.columns([1, 1, 1])
         with col_c:
             st.image("logo_empresa.png", width=largura)
+
 def gerar_texto_recibo(num_cupom, data_hora, itens, subtotal, descontos, total, formas_pgto, recebido, troco):
+    linhas = [
+        "==========================================",
+        "           DOMINUS PDV - RECIBO           ",
+        "      COMPROVANTE NÃO FISCAL DE VENDA     ",
+        "==========================================",
+        f"Cupom Nº: {num_cupom:06d}   Data: {data_hora}",
+        "------------------------------------------",
+        "ITEM  DESCRIÇÃO                 QTD  TOTAL",
+        "------------------------------------------"
+    ]
+    for item in itens:
+        desc_curta = item["Descrição do Produto"][:24].ljust(24)
+        qtd_str = str(item["Quantidade"]).rjust(3)
+        tot_str = f"{item['Valor Total']:.2f}".rjust(7)
+        linhas.append(f"{item['Seq']:02d}    {desc_curta} {qtd_str} {tot_str}")
+        if item["Desconto Item"] > 0:
+            linhas.append(f"      (Desconto no item: -R$ {item['Desconto Item']:.2f})")
+            
+    linhas.extend([
+        "------------------------------------------",
+        f"SUBTOTAL:                     R$ {subtotal:8.2f}",
+        f"DESCONTOS APLICADOS:         -R$ {descontos:8.2f}",
+        f"TOTAL A PAGAR:                R$ {total:8.2f}",
+        "------------------------------------------",
+        "FORMAS DE PAGAMENTO:",
+        f"  {formas_pgto}",
+        f"VALOR RECEBIDO:               R$ {recebido:8.2f}",
+        f"TROCO:                        R$ {troco:8.2f}",
+        "==========================================",
+        "       OBRIGADO PELA PREFERÊNCIA!         ",
+        "=========================================="
+    ])
+    return "\n".join(linhas)
+
 def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
     qtd_vendas = len(df_dia)
     subtotal_dia = df_dia["Subtotal (R$)"].sum()
     descontos_dia = df_dia["Descontos (R$)"].sum()
     total_dia = df_dia["Total Pago (R$)"].sum()
 
-    # Soma os valores por forma de pagamento a partir do texto registrado
     totais_pgto = {"Dinheiro": 0.0, "Pix": 0.0, "Débito": 0.0, "Crédito": 0.0}
     for registro in df_dia["Formas de Pagto"].dropna():
         partes = registro.split("|")
@@ -36,7 +70,7 @@ def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
             for forma in totais_pgto.keys():
                 if p.startswith(f"{forma}: R$"):
                     try:
-                        valor = float(p.split("R$").strip())
+                        valor = float(p.split("R$")[1].strip())
                         totais_pgto[forma] += valor
                     except ValueError:
                         pass
@@ -63,7 +97,7 @@ def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
     ]
 
     for _, row in df_dia.iterrows():
-        hora = row["Data/Hora"].split(" ") if " " in row["Data/Hora"] else ""
+        hora = row["Data/Hora"].split(" ")[1] if " " in row["Data/Hora"] else ""
         linhas.append(f"  #{int(row['Nº Cupom']):04d} ({hora}) - R$ {row['Total Pago (R$)']:7.2f}")
 
     linhas.extend([
@@ -72,6 +106,7 @@ def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
         "=========================================="
     ])
     return "\n".join(linhas)
+
 
     linhas = [
         "==========================================",
