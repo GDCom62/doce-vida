@@ -788,7 +788,7 @@ elif menu == "📊 Relatórios de Vendas":
     with st.container(border=True):
         col_f1, col_f2 = st.columns([1.2, 2.0])
         
-               with col_f1:
+    with col_f1:
             # Ajusta para o fuso horário de Brasília (UTC-3)
             from datetime import timedelta
             agora_br = datetime.utcnow() - timedelta(hours=3)
