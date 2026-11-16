@@ -867,10 +867,10 @@ elif menu == "📊 Relatórios de Vendas":
             components.html(html_impressao, height=65)
 
 
-        with col_f2:
-            if not df_dia.empty:
-                st.write("**Pré-visualização do Comprovante de Fechamento:**")
-                st.code(texto_fechamento, language="text")
+     with col_f2:
+        if not df_dia.empty:
+            st.write("**Pré-visualização do Comprovante de Fechamento:**")
+            st.code(texto_fechamento, language="text")
 
     st.markdown("---")
 
