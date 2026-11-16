@@ -806,7 +806,14 @@ elif menu == "📊 Relatórios de Vendas":
                 texto_fechamento = gerar_relatorio_fechamento_dia(data_str, df_dia)
                 st.metric("Total Vendido no Dia", f"R$ {df_dia['Total Pago (R$)'].sum():.2f}")
                 st.download_button(
-                                    # Botão de Impressão Direta via Navegador (sem precisar baixar arquivo)
+                    label="🖨️ Baixar / Imprimir Fechamento (.txt)",
+                    data=texto_fechamento,
+                    file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
+        # Botão de Impressão Direta via Navegador (sem precisar baixar arquivo)
                 texto_esc = texto_fechamento.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
                 html_impressao = f"""
                 <button onclick="imprimirRelatorio()" style="
@@ -842,13 +849,6 @@ elif menu == "📊 Relatórios de Vendas":
                 """
                 components.html(html_impressao, height=70)
 
-                    label="🖨️ Baixar / Imprimir Fechamento (.txt)",
-                    data=texto_fechamento,
-                    file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
-                    mime="text/plain",
-                    type="primary",
-                    use_container_width=True
-                )
             else:
                 st.info(f"Nenhuma venda registrada na data {data_str}.")
 
