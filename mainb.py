@@ -788,15 +788,18 @@ elif menu == "📊 Relatórios de Vendas":
     with st.container(border=True):
         col_f1, col_f2 = st.columns([1.2, 2.0])
         
-        with col_f1:
+               with col_f1:
+            # Ajusta para o fuso horário de Brasília (UTC-3)
+            from datetime import timedelta
+            agora_br = datetime.utcnow() - timedelta(hours=3)
+            
             data_selecionada = st.date_input(
                 "Selecione o dia para fechar o caixa:", 
-                value=datetime.now().date(),
+                value=agora_br.date(),
                 format="DD/MM/YYYY"
             )
             data_str = data_selecionada.strftime("%d/%m/%Y")
             
-            # Filtra as vendas do dia escolhido
             if not df_vendas_todas.empty:
                 df_dia = df_vendas_todas[df_vendas_todas["Data/Hora"].str.startswith(data_str)]
             else:
@@ -805,52 +808,64 @@ elif menu == "📊 Relatórios de Vendas":
             if not df_dia.empty:
                 texto_fechamento = gerar_relatorio_fechamento_dia(data_str, df_dia)
                 st.metric("Total Vendido no Dia", f"R$ {df_dia['Total Pago (R$)'].sum():.2f}")
-                st.download_button(
-                    label="🖨️ Baixar / Imprimir Fechamento (.txt)",
-                    data=texto_fechamento,
-                    file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
-                    mime="text/plain",
-                    type="primary",
-                    use_container_width=True
-                )
-        # Botão de Impressão Direta via Navegador (sem precisar baixar arquivo)
-                texto_esc = texto_fechamento.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
-                html_impressao = f"""
-                <button onclick="imprimirRelatorio()" style="
-                    width: 100%;
-                    background-color: #28a745;
-                    color: white;
-                    border: none;
-                    padding: 14px 20px;
-                    font-size: 18px;
-                    font-weight: bold;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    margin-top: 8px;
-                ">
-                    🖨️ IMPRIMIR RELATÓRIO AGORA
-                </button>
-                <script>
-                function imprimirRelatorio() {{
-                    var janela = window.open('', '_blank', 'width=400,height=600');
-                    janela.document.write('<html><head><title>Fechamento de Caixa</title>');
-                    janela.document.write('<style>body {{ font-family: monospace; font-size: 13px; margin: 10px; white-space: pre; }}</style>');
-                    janela.document.write('</head><body>');
-                    janela.document.write(`{texto_esc}`);
-                    janela.document.write('</body></html>');
-                    janela.document.close();
-                    janela.focus();
-                    setTimeout(function() {{
-                        janela.print();
-                        janela.close();
-                    }}, 250);
-                }}
-                </script>
-                """
-                components.html(html_impressao, height=70)
-
             else:
                 st.info(f"Nenhuma venda registrada na data {data_str}.")
+                texto_fechamento = (
+                    f"==========================================\n"
+                    f"    DOMINUS PDV - FECHAMENTO DE CAIXA     \n"
+                    f"==========================================\n"
+                    f"Data: {data_str}\n"
+                    f"Status: SEM MOVIMENTACAO NESTA DATA\n"
+                    f"=========================================="
+                )
+
+            st.download_button(
+                label="📥 Baixar Arquivo (.txt)",
+                data=texto_fechamento,
+                file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+            # Botão Verde de Impressão Direta (Sempre visível para facilitar o uso)
+            texto_esc = texto_fechamento.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+            html_impressao = f"""
+            <button onclick="imprimirRelatorio()" style="
+                width: 100%;
+                background-color: #28a745;
+                color: white;
+                border: none;
+                padding: 14px 20px;
+                font-size: 18px;
+                font-weight: bold;
+                border-radius: 8px;
+                cursor: pointer;
+            ">
+                🖨️ IMPRIMIR RELATÓRIO
+            </button>
+            <script>
+            function imprimirRelatorio() {{
+                var janela = window.open('', '_blank', 'width=450,height=650');
+                if (!janela) {{
+                    alert('Por favor, permita pop-ups neste site para abrir a janela de impressão.');
+                    return;
+                }}
+                janela.document.write('<html><head><title>Fechamento de Caixa</title>');
+                janela.document.write('<style>body {{ font-family: monospace; font-size: 13px; margin: 10px; white-space: pre; }}</style>');
+                janela.document.write('</head><body>');
+                janela.document.write(`{texto_esc}`);
+                janela.document.write('</body></html>');
+                janela.document.close();
+                janela.focus();
+                setTimeout(function() {{
+                    janela.print();
+                    janela.close();
+                }}, 300);
+            }}
+            </script>
+            """
+            components.html(html_impressao, height=65)
+
 
         with col_f2:
             if not df_dia.empty:
