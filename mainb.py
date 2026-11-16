@@ -3,6 +3,7 @@ import sqlite3
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import streamlit.components.v1 as components
 
 # Configuração da página Web do Streamlit
 st.set_page_config(page_title="Dominus PDV - Gestão Integrada", page_icon="🛒", layout="wide")
@@ -805,6 +806,42 @@ elif menu == "📊 Relatórios de Vendas":
                 texto_fechamento = gerar_relatorio_fechamento_dia(data_str, df_dia)
                 st.metric("Total Vendido no Dia", f"R$ {df_dia['Total Pago (R$)'].sum():.2f}")
                 st.download_button(
+                                    # Botão de Impressão Direta via Navegador (sem precisar baixar arquivo)
+                texto_esc = texto_fechamento.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+                html_impressao = f"""
+                <button onclick="imprimirRelatorio()" style="
+                    width: 100%;
+                    background-color: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 14px 20px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    margin-top: 8px;
+                ">
+                    🖨️ IMPRIMIR RELATÓRIO AGORA
+                </button>
+                <script>
+                function imprimirRelatorio() {{
+                    var janela = window.open('', '_blank', 'width=400,height=600');
+                    janela.document.write('<html><head><title>Fechamento de Caixa</title>');
+                    janela.document.write('<style>body {{ font-family: monospace; font-size: 13px; margin: 10px; white-space: pre; }}</style>');
+                    janela.document.write('</head><body>');
+                    janela.document.write(`{texto_esc}`);
+                    janela.document.write('</body></html>');
+                    janela.document.close();
+                    janela.focus();
+                    setTimeout(function() {{
+                        janela.print();
+                        janela.close();
+                    }}, 250);
+                }}
+                </script>
+                """
+                components.html(html_impressao, height=70)
+
                     label="🖨️ Baixar / Imprimir Fechamento (.txt)",
                     data=texto_fechamento,
                     file_name=f"fechamento_caixa_{data_selecionada.strftime('%d_%m_%Y')}.txt",
