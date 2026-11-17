@@ -711,12 +711,12 @@ with st.sidebar:
             st.rerun()
 
     # Exibição do Recibo em destaque após finalizar
-        st.session_state.ultimo_recibo = {
-            "numero": num_cupom_gerado,
-            "texto": gerar_texto_recibo(
-                num_cupom_gerado,
-                data_agora,
-                st.session_state.carrinho_novo,
+    st.session_state.ultimo_recibo = {
+        "numero": num_cupom_gerado,
+        "texto": gerar_texto_recibo(
+            num_cupom_gerado,
+            data_agora,
+    st.session_state.carrinho_novo,
                 subtotal,
                 desconto_geral_aplicado,
                 total_compra,
