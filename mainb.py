@@ -725,8 +725,8 @@ with st.sidebar:
                 troco
             )
         }
-        st.session_state.carrinho_novo = []
-        st.rerun()
+    st.session_state.carrinho_novo = []
+    st.rerun()
 
     # Exibição do Recibo em destaque após finalizar
     if st.session_state.ultimo_recibo:
