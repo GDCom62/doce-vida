@@ -692,12 +692,18 @@ with st.sidebar:
             conn.commit()
             conn.close()
             
-            st.session_state.ultimo_recibo = {
+                       st.session_state.ultimo_recibo = {
                 "numero": num_cupom_gerado,
                 "texto": gerar_texto_recibo(
-                    num_cupom_gerado, data_agora, st.session_state.carrinho_novo,
-                    subtotal, desconto_geral_aplicado, total_compra,
-                    str_pagamento, total_recebido, troco
+                    num_cupom_gerado,
+                    data_agora,
+                    st.session_state.carrinho_novo,
+                    subtotal,
+                    desconto_geral_aplicado,
+                    total_compra,
+                    str_pagamento,
+                    total_recebido,
+                    troco
                 )
             }
             st.session_state.carrinho_novo = []
@@ -707,28 +713,7 @@ with st.sidebar:
     if st.session_state.ultimo_recibo:
         with st.container(border=True):
             st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
-            col_r1, col_r2 = st.columns()
-            with col_r1:
-                st.code(st.session_state.ultimo_recibo["texto"], language="text")
-            with col_r2:
-                st.download_button(
-                    label="🖨️ Baixar / Imprimir Recibo",
-                    data=st.session_state.ultimo_recibo["texto"],
-                    file_name=f"recibo_{st.session_state.ultimo_recibo['numero']:06d}.txt",
-                    mime="text/plain",
-                    type="primary",
-                    use_container_width=True
-                )
-                st.write("")
-                if st.button("🆕 Iniciar Nova Venda", use_container_width=True):
-                    st.session_state.ultimo_recibo = None
-                    st.rerun()
-
-    # Exibição do Recibo em destaque após finalizar
-    if st.session_state.ultimo_recibo:
-        with st.container(border=True):
-            st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
-            col_r1, col_r2 = st.columns()
+            col_r1, col_r2 = st.columns([1.5, 1.0])
             with col_r1:
                 st.code(st.session_state.ultimo_recibo["texto"], language="text")
             with col_r2:
