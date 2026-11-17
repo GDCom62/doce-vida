@@ -752,6 +752,7 @@ with st.sidebar:
 # ==============================================================================
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE (SABORES, GRAMATURA E ALARME DE VALIDADE)
 # ==============================================================================
+
 elif menu == "📦 Almoxarifado / Estoque":
     st.header("📦 Gestão de Estoque, Gramaturas e Validade")
     
