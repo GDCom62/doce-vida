@@ -147,7 +147,7 @@ def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Tabela de Funcionários/Acesso
+    # 1. Tabela de Funcionários
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS funcionarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,38 +166,55 @@ def inicializar_banco_isolado():
         telefone TEXT
     )""")
     
-    # 3. Tabela do Almoxarifado (Produtos com Produto Base + Variação)
+    # 3. Tabela de Produtos (Permite mesmo código de barras para sabores/gramaturas diferentes + Validade)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_barras TEXT UNIQUE,
+        codigo_barras TEXT NOT NULL,
         produto_base TEXT NOT NULL,
         variacao TEXT NOT NULL,
+        gramatura TEXT DEFAULT 'Padrão',
         nome TEXT NOT NULL,
         preco_venda REAL NOT NULL,
         estoque_atual INTEGER DEFAULT 0,
-        estoque_minimo INTEGER DEFAULT 5
+        estoque_minimo INTEGER DEFAULT 5,
+        data_fabricacao TEXT,
+        data_validade TEXT,
+        UNIQUE(codigo_barras, variacao, gramatura)
     )""")
 
-    # Migração automática e correção de produtos antigos (DEVE FICAR AQUI)
+    # Migração automática caso a tabela antiga tenha UNIQUE apenas em codigo_barras
     cursor.execute("PRAGMA table_info(produtos)")
-    colunas_existentes = [col[1] for col in cursor.fetchall()]
+    colunas_info = cursor.fetchall()
+    colunas_existentes = [col[1] for col in colunas_info]
     
-    if "produto_base" not in colunas_existentes:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN produto_base TEXT DEFAULT 'Geral'")
-    if "variacao" not in colunas_existentes:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN variacao TEXT DEFAULT 'Padrão'")
+    if "gramatura" not in colunas_existentes or "data_validade" not in colunas_existentes:
+        cursor.execute("ALTER TABLE produtos RENAME TO produtos_antigos")
+        cursor.execute("""
+        CREATE TABLE produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_barras TEXT NOT NULL,
+            produto_base TEXT NOT NULL,
+            variacao TEXT NOT NULL,
+            gramatura TEXT DEFAULT 'Padrão',
+            nome TEXT NOT NULL,
+            preco_venda REAL NOT NULL,
+            estoque_atual INTEGER DEFAULT 0,
+            estoque_minimo INTEGER DEFAULT 5,
+            data_fabricacao TEXT,
+            data_validade TEXT,
+            UNIQUE(codigo_barras, variacao, gramatura)
+        )""")
         
-    cursor.execute("""
-        UPDATE produtos 
-        SET produto_base = nome 
-        WHERE produto_base IS NULL OR produto_base = '' OR produto_base = 'Geral'
-    """)
-    cursor.execute("""
-        UPDATE produtos 
-        SET variacao = 'Padrão' 
-        WHERE variacao IS NULL OR variacao = ''
-    """)
+        base_col = "produto_base" if "produto_base" in colunas_existentes else "nome"
+        var_col = "variacao" if "variacao" in colunas_existentes else "'Padrão'"
+        
+        cursor.execute(f"""
+            INSERT OR IGNORE INTO produtos (id, codigo_barras, produto_base, variacao, gramatura, nome, preco_venda, estoque_atual, estoque_minimo)
+            SELECT id, codigo_barras, COALESCE(NULLIF({base_col}, ''), nome), COALESCE(NULLIF({var_col}, ''), 'Padrão'), 'Padrão', nome, preco_venda, estoque_atual, estoque_minimo
+            FROM produtos_antigos
+        """)
+        cursor.execute("DROP TABLE produtos_antigos")
 
     # 4. Tabela de Histórico de Vendas
     cursor.execute("""
@@ -210,7 +227,6 @@ def inicializar_banco_isolado():
         forma_pagamento TEXT
     )""")
 
-    # Usuário padrão
     cursor.execute("SELECT COUNT(*) FROM funcionarios")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
@@ -218,17 +234,17 @@ def inicializar_banco_isolado():
             ("Administrador", "admin", "admin123", "Gerente")
         )
         
-    # Produtos iniciais de exemplo com Produto Base + Variações
     cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone()[0] == 0:
         exemplos = [
-            ("78910001", "Chocolate Joaozinho", "Chocolate Branco", "Chocolate Joaozinho - Chocolate Branco", 6.50, 50),
-            ("78910002", "Chocolate Joaozinho", "Chocolate com Amêndoas", "Chocolate Joaozinho - Chocolate com Amêndoas", 7.50, 40),
-            ("78910003", "Chocolate Joaozinho", "Ao Leite Tradicional", "Chocolate Joaozinho - Ao Leite Tradicional", 6.00, 60),
-            ("78920001", "Brigadeiro Gourmet", "Tradicional", "Brigadeiro Gourmet - Tradicional", 4.00, 100)
+            ("78910001", "Chocolate Joaozinho", "Chocolate Branco", "100g", "Chocolate Joaozinho - Chocolate Branco (100g)", 6.50, 50, "2026-11-01", "2026-12-30"),
+            ("78910001", "Chocolate Joaozinho", "Com Amêndoas", "100g", "Chocolate Joaozinho - Com Amêndoas (100g)", 7.50, 40, "2026-11-01", "2026-12-30"),
+            ("78910001", "Chocolate Joaozinho", "Com Amêndoas", "250g", "Chocolate Joaozinho - Com Amêndoas (250g)", 15.90, 20, "2026-11-01", "2026-12-30")
         ]
         cursor.executemany(
-            "INSERT INTO produtos (codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?, ?)",
+            """INSERT INTO produtos 
+               (codigo_barras, produto_base, variacao, gramatura, nome, preco_venda, estoque_atual, data_fabricacao, data_validade) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             exemplos
         )
         
@@ -334,52 +350,142 @@ with st.sidebar:
 # ==============================================================================
 # MÓDULO 1: PDV OTIMIZADO (INTERFACE LIMPA E ACESSÍVEL)
 # ==============================================================================
-if menu == "🛒 Frente de Caixa (PDV)":
-    # Estilo visual para aumentar fontes, espaçamento e botões (Foco em Acessibilidade)
-    st.markdown("""
-        <style>
-        .stSelectbox label, .stTextInput label, .stNumberInput label {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            color: #1e3d59 !important;
-        }
-        .stButton button {
-            min-height: 52px !important;
-            font-size: 18px !important;
-            font-weight: bold !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h1 style='text-align: center; color: #1e3d59; font-size: 32px;'>🛒 Caixa - Frente de Loja</h1>", unsafe_allow_html=True)
-    
-    # Busca produtos cadastrados
+    # Busca produtos cadastrados (usando o ID único para diferenciar itens com mesmo código de barras)
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT codigo_barras, 
+        SELECT id,
+               codigo_barras, 
                COALESCE(NULLIF(produto_base, ''), nome) as base, 
-               COALESCE(NULLIF(variacao, ''), 'Padrão') as var, 
+               COALESCE(NULLIF(variacao, ''), 'Padrão') as var,
+               COALESCE(NULLIF(gramatura, ''), 'Padrão') as gram,
                nome, 
                preco_venda, 
-               estoque_atual 
+               estoque_atual,
+               data_validade
         FROM produtos 
-        ORDER BY base ASC, var ASC
+        ORDER BY base ASC, var ASC, gram ASC
     """)
     lista_produtos_db = cursor.fetchall()
     conn.close()
 
+    # Alarme discreto no topo do PDV se houver produto vencido ou vencendo em 7 dias
+    hoje_pdv = datetime.now().date()
+    vencendo_pdv = []
+    for _, _, base, var, gram, _, _, est, val_str in lista_produtos_db:
+        if est > 0 and val_str and str(val_str).strip() not in ["", "None", "NaT"]:
+            try:
+                dt_v = datetime.strptime(str(val_str)[:10], "%Y-%m-%d").date()
+                dias_r = (dt_v - hoje_pdv).days
+                if dias_r <= 7:
+                    status_v = "VENCIDO" if dias_r < 0 else f"vence em {dias_r}d"
+                    vencendo_pdv.append(f"{base} - {var} ({gram}) [{status_v}]")
+            except ValueError:
+                pass
+    if vencendo_pdv:
+        st.warning("⚠️ **Atenção Validade:** " + " | ".join(vencendo_pdv))
+
     produtos_agrupados = {}
-    for cod, base, var, nome_comp, preco, est in lista_produtos_db:
+    for pid, cod, base, var, gram, nome_comp, preco, est, val_str in lista_produtos_db:
         if base not in produtos_agrupados:
             produtos_agrupados[base] = []
+        val_fmt = ""
+        if val_str and str(val_str).strip() not in ["", "None", "NaT"]:
+            try:
+                val_fmt = f" | Val: {datetime.strptime(str(val_str)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')}"
+            except ValueError:
+                pass
         produtos_agrupados[base].append({
+            "id": pid,
             "codigo": cod,
             "variacao": var,
+            "gramatura": gram,
             "nome_completo": nome_comp,
             "preco": preco,
-            "estoque": est
+            "estoque": est,
+            "validade_fmt": val_fmt
         })
+
+    # -------------------- PASSO 1: SELEÇÃO DO PRODUTO --------------------
+    st.markdown("### 1️⃣ Escolher Produto")
+    with st.container(border=True):
+        col_sel1, col_sel2, col_sel3 = st.columns([1.1, 1.4, 1.7])
+        with col_sel1:
+            input_codigo = st.text_input("🔫 Código de Barras:", key="pdv_cod_barras", placeholder="Bipe ou digite...")
+        with col_sel2:
+            lista_bases = ["-- Selecione o Produto --"] + list(produtos_agrupados.keys())
+            base_escolhida = st.selectbox("Produto:", options=lista_bases, key="pdv_base")
+        with col_sel3:
+            if base_escolhida != "-- Selecione o Produto --":
+                opcoes_var = {
+                    f"{v['variacao']} ({v['gramatura']}) — R$ {v['preco']:.2f}{v['validade_fmt']}": v["id"]
+                    for v in produtos_agrupados[base_escolhida]
+                }
+                var_label = st.selectbox("Sabor e Gramatura:", options=list(opcoes_var.keys()), key="pdv_var")
+                id_da_lista = opcoes_var[var_label]
+            else:
+                st.selectbox("Sabor e Gramatura:", options=["-- Escolha o produto ao lado --"], disabled=True)
+                id_da_lista = None
+
+        # Se o operador bipar um código de barras que tem mais de 1 sabor/gramatura, abre seletor imediato
+        id_escolhido_codigo = None
+        if input_codigo.strip():
+            correspondentes = [p for p in lista_produtos_db if p[1] == input_codigo.strip()]
+            if len(correspondentes) > 1:
+                opcoes_cod = {
+                    f"{p[3]} ({p[4]}) — R$ {p[6]:.2f} (Est: {p[7]})": p[0]
+                    for p in correspondentes
+                }
+                escolha_cod_label = st.selectbox("🔎 Este código possui mais de uma opção. Escolha qual está vendendo:", options=list(opcoes_cod.keys()))
+                id_escolhido_codigo = opcoes_cod[escolha_cod_label]
+            elif len(correspondentes) == 1:
+                id_escolhido_codigo = correspondentes[0][0]
+
+        with st.form("form_lancar_item", clear_on_submit=True):
+            col_q1, col_q2 = st.columns([1.0, 2.5])
+            with col_q1:
+                qtd_item = st.number_input("Quantidade:", min_value=1, value=1, step=1)
+            with col_q2:
+                st.write("")
+                st.write("")
+                btn_adicionar = st.form_submit_button("➕ ADICIONAR NA COMPRA", type="primary", use_container_width=True)
+            
+            with st.expander("🏷️ Aplicar desconto apenas neste item (Opcional)"):
+                desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
+
+        if btn_adicionar:
+            id_final = id_escolhido_codigo if input_codigo.strip() else id_da_lista
+            
+            if id_final:
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, codigo_barras, nome, preco_venda, estoque_atual FROM produtos WHERE id = ?", (id_final,))
+                prod_achado = cursor.fetchone()
+                conn.close()
+                
+                if prod_achado:
+                    pid, cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
+                    qtd_no_carrinho = sum(
+                        item["Quantidade"] for item in st.session_state.carrinho_novo if item.get("ID_Prod") == pid
+                    )
+                    if estoque_disp >= (qtd_item + qtd_no_carrinho):
+                        v_tot = max(0.0, (v_unit * qtd_item) - desconto_item)
+                        st.session_state.carrinho_novo.append({
+                            "Seq": len(st.session_state.carrinho_novo) + 1,
+                            "ID_Prod": pid,
+                            "Código": cod_barras,
+                            "Descrição do Produto": nome_prod,
+                            "Quantidade": qtd_item,
+                            "Valor Unitário": float(v_unit),
+                            "Desconto Item": float(desconto_item),
+                            "Valor Total": float(v_tot)
+                        })
+                        st.toast(f"✅ {nome_prod} adicionado!")
+                        st.rerun()
+                    else:
+                        st.warning(f"⚠️ Estoque insuficiente. Disponível: {estoque_disp} un.")
+            else:
+                st.warning("⚠️ Produto não encontrado ou não selecionado.")
 
     # -------------------- PASSO 1: SELEÇÃO DO PRODUTO --------------------
     st.markdown("### 1️⃣ Escolher Produto")
@@ -622,78 +728,127 @@ if menu == "🛒 Frente de Caixa (PDV)":
 # ==============================================================================
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE (COM PRODUTO BASE E VARIAÇÕES)
 # ==============================================================================
+# ==============================================================================
+# MÓDULO 2: ALMOXARIFADO / ESTOQUE (SABORES, GRAMATURA E ALARME DE VALIDADE)
+# ==============================================================================
 elif menu == "📦 Almoxarifado / Estoque":
-    st.header("Gestão Central de Almoxarifado (Produtos e Variações)")
+    st.header("📦 Gestão de Estoque, Gramaturas e Validade")
     
     conn = sqlite3.connect(DB_NAME)
     df_almoxarifado = pd.read_sql_query("""
-        SELECT id, 
+        SELECT id AS [ID], 
                codigo_barras AS [Cód. Barras], 
                produto_base AS [Produto Base],
-               variacao AS [Variação / Sabor],
-               preco_venda AS [Preço de Venda (R$)], 
-               estoque_atual AS [Estoque Atual], 
-               estoque_minimo AS [Estoque Mínimo] 
+               variacao AS [Sabor / Tipo],
+               gramatura AS [Gramatura],
+               preco_venda AS [Preço (R$)], 
+               estoque_atual AS [Estoque],
+               data_fabricacao AS [Fabricação],
+               data_validade AS [Validade]
         FROM produtos
-        ORDER BY produto_base ASC, variacao ASC
+        ORDER BY produto_base ASC, variacao ASC, gramatura ASC
     """, conn)
     conn.close()
-    
+
+    # -------------------- ALARME DE VENCIMENTO (PRÓXIMOS 7 DIAS) --------------------
+    if not df_almoxarifado.empty:
+        hoje = datetime.now().date()
+        alertas_validade = []
+        for _, row in df_almoxarifado.iterrows():
+            val_str = row["Validade"]
+            if val_str and str(val_str).strip() not in ["", "None", "NaT"]:
+                try:
+                    dt_val = datetime.strptime(str(val_str)[:10], "%Y-%m-%d").date()
+                    dias_restantes = (dt_val - hoje).days
+                    if dias_restantes < 0:
+                        alertas_validade.append(f"🔴 **VENCIDO há {abs(dias_restantes)} dia(s):** {row['Produto Base']} - {row['Sabor / Tipo']} ({row['Gramatura']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
+                    elif dias_restantes <= 7:
+                        alertas_validade.append(f"🟡 **VENCE EM {dias_restantes} DIA(S):** {row['Produto Base']} - {row['Sabor / Tipo']} ({row['Gramatura']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
+                except ValueError:
+                    pass
+        
+        if alertas_validade:
+            with st.container(border=True):
+                st.error("🚨 **ALARME DE VALIDADE / VENCIMENTO PRÓXIMO**")
+                for aviso in alertas_validade:
+                    st.markdown(aviso)
+
     st.subheader("Inventário Físico da Loja")
     st.dataframe(df_almoxarifado, use_container_width=True, hide_index=True)
     
-    col_alm1, col_alm2 = st.columns(2)
+    col_alm1, col_alm2 = st.columns([1.4, 1.0])
     
     with col_alm1:
-        with st.expander("➕ Cadastrar / Abastecer Produto e Variação", expanded=True):
+        with st.expander("➕ Cadastrar / Abastecer Produto (Mesmo Cód. Barras ou Novo)", expanded=True):
             with st.form("entrada_produtos"):
-                c_barras = st.text_input("Código de Barras Único")
+                c_barras = st.text_input("Código de Barras (Pode repetir para sabores/gramaturas diferentes)")
                 c_base = st.text_input("Produto Base / Linha (Ex: Chocolate Joaozinho)")
-                c_var = st.text_input("Variação / Sabor (Ex: Chocolate Branco, Com Amêndoas)")
-                c_preco = st.number_input("Preço de Venda Praticado (R$)", min_value=0.0, format="%.2f")
-                c_qtd = st.number_input("Quantidade Recebida (Entrada)", min_value=1, step=1)
-                btn_salvar_estoque = st.form_submit_button("Confirmar Entrada")
+                
+                col_sg1, col_sg2 = st.columns(2)
+                with col_sg1:
+                    c_var = st.text_input("Sabor / Variação (Ex: Chocolate Branco)")
+                with col_sg2:
+                    c_gram = st.text_input("Gramatura / Peso (Ex: 100g, 250g, 1kg)", value="Padrão")
+                
+                col_pq1, col_pq2 = st.columns(2)
+                with col_pq1:
+                    c_preco = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
+                with col_pq2:
+                    c_qtd = st.number_input("Quantidade Entrada", min_value=1, step=1)
+                    
+                col_dt1, col_dt2 = st.columns(2)
+                with col_dt1:
+                    c_fab = st.date_input("Data de Fabricação", value=datetime.now().date(), format="DD/MM/YYYY")
+                with col_dt2:
+                    from datetime import timedelta
+                    c_val = st.date_input("Data de Validade", value=datetime.now().date() + timedelta(days=30), format="DD/MM/YYYY")
+                    
+                btn_salvar_estoque = st.form_submit_button("Confirmar Entrada no Estoque", type="primary", use_container_width=True)
                 
                 if btn_salvar_estoque:
-                    if c_barras.strip() and c_base.strip() and c_var.strip() and c_preco > 0:
-                        nome_completo = f"{c_base.strip()} - {c_var.strip()}"
+                    if c_barras.strip() and c_base.strip() and c_var.strip() and c_gram.strip() and c_preco > 0:
+                        nome_completo = f"{c_base.strip()} - {c_var.strip()} ({c_gram.strip()})"
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
                         cursor.execute("""
-                            INSERT INTO produtos (codigo_barras, produto_base, variacao, nome, preco_venda, estoque_atual)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(codigo_barras) DO UPDATE SET
+                            INSERT INTO produtos (codigo_barras, produto_base, variacao, gramatura, nome, preco_venda, estoque_atual, data_fabricacao, data_validade)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(codigo_barras, variacao, gramatura) DO UPDATE SET
                             estoque_atual = estoque_atual + excluded.estoque_atual,
                             preco_venda = excluded.preco_venda,
                             produto_base = excluded.produto_base,
-                            variacao = excluded.variacao,
-                            nome = excluded.nome
-                        """, (c_barras.strip(), c_base.strip(), c_var.strip(), nome_completo, c_preco, c_qtd))
+                            nome = excluded.nome,
+                            data_fabricacao = excluded.data_fabricacao,
+                            data_validade = excluded.data_validade
+                        """, (
+                            c_barras.strip(), c_base.strip(), c_var.strip(), c_gram.strip(),
+                            nome_completo, c_preco, c_qtd, c_fab.strftime("%Y-%m-%d"), c_val.strftime("%Y-%m-%d")
+                        ))
                         conn.commit()
                         conn.close()
-                        st.success(f"📦 '{nome_completo}' integrado ao Almoxarifado!")
+                        st.success(f"📦 '{nome_completo}' salvo no estoque com sucesso!")
                         st.rerun()
                     else:
-                        st.error("⚠️ Preencha todos os campos (Código, Produto Base, Variação e Preço).")
+                        st.error("⚠️ Preencha Código de Barras, Produto Base, Sabor, Gramatura e Preço.")
 
     with col_alm2:
-        with st.expander("🚨 Alertas de Estoque Crítico (Mínimo)", expanded=True):
+        with st.expander("📉 Alertas de Estoque Baixo", expanded=True):
             conn = sqlite3.connect(DB_NAME)
             df_critico = pd.read_sql_query("""
                 SELECT codigo_barras AS [Código], 
-                       nome AS [Produto / Variação], 
+                       nome AS [Produto], 
                        estoque_atual AS [Qtd Atual], 
-                       estoque_minimo AS [Qtd Mínima] 
+                       estoque_minimo AS [Mínimo] 
                 FROM produtos 
                 WHERE estoque_atual <= estoque_minimo
             """, conn)
             conn.close()
             
             if not df_critico.empty:
-                st.warning("Os seguintes itens precisam de reposição urgente:")
+                st.warning("Itens precisando de reposição:")
                 st.dataframe(df_critico, use_container_width=True, hide_index=True)
             else:
-                st.success("✅ Todos os produtos estão com níveis de estoque seguros!")
+                st.success("✅ Níveis de estoque adequados!")
 
 # ==============================================================================
 # MÓDULO 3: CADASTROS (CLIENTES E EQUIPE)
