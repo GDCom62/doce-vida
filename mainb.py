@@ -704,10 +704,22 @@ with st.sidebar:
             st.rerun()
 
     # Exibição do Recibo em destaque após finalizar
+               st.session_state.ultimo_recibo = {
+                "numero": num_cupom_gerado,
+                "texto": gerar_texto_recibo(
+                    num_cupom_gerado, data_agora, st.session_state.carrinho_novo,
+                    subtotal, desconto_geral_aplicado, total_compra,
+                    str_pagamento, total_recebido, troco
+                )
+            }
+            st.session_state.carrinho_novo = []
+            st.rerun()
+
+    # Exibição do Recibo em destaque após finalizar
     if st.session_state.ultimo_recibo:
         with st.container(border=True):
             st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
-            col_r1, col_r2 = st.columns([2, 1])
+            col_r1, col_r2 = st.columns()
             with col_r1:
                 st.code(st.session_state.ultimo_recibo["texto"], language="text")
             with col_r2:
@@ -724,14 +736,11 @@ with st.sidebar:
                     st.session_state.ultimo_recibo = None
                     st.rerun()
 
-
-# ==============================================================================
-# MÓDULO 2: ALMOXARIFADO / ESTOQUE (COM PRODUTO BASE E VARIAÇÕES)
-# ==============================================================================
 # ==============================================================================
 # MÓDULO 2: ALMOXARIFADO / ESTOQUE (SABORES, GRAMATURA E ALARME DE VALIDADE)
 # ==============================================================================
 elif menu == "📦 Almoxarifado / Estoque":
+
     st.header("📦 Gestão de Estoque, Gramaturas e Validade")
     
     conn = sqlite3.connect(DB_NAME)
