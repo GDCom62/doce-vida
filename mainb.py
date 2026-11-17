@@ -664,13 +664,15 @@ with st.sidebar:
         tem_itens = len(st.session_state.carrinho_novo) > 0
         pagamento_ok = (total_compra > 0) and (valor_restante <= 0.009) and (not excesso_eletronico)
 
-        if st.button("✅ FINALIZAR VENDA E GERAR RECIBO", type="primary", use_container_width=True, disabled=not (tem_itens and pagamento_ok)):
+                if st.button("✅ FINALIZAR VENDA E GERAR RECIBO", type="primary", use_container_width=True, disabled=not (tem_itens and pagamento_ok)):
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
+            
+            # Baixa automática no estoque por ID único
             for item in st.session_state.carrinho_novo:
                 cursor.execute(
-                    "UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE codigo_barras = ?", 
-                    (item["Quantidade"], item["Código"])
+                    "UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE id = ?", 
+                    (item["Quantidade"], item["ID_Prod"])
                 )
             
             formas_usadas = []
@@ -692,7 +694,7 @@ with st.sidebar:
             conn.commit()
             conn.close()
             
-                       st.session_state.ultimo_recibo = {
+            st.session_state.ultimo_recibo = {
                 "numero": num_cupom_gerado,
                 "texto": gerar_texto_recibo(
                     num_cupom_gerado,
@@ -708,6 +710,27 @@ with st.sidebar:
             }
             st.session_state.carrinho_novo = []
             st.rerun()
+
+    # Exibição do Recibo em destaque após finalizar
+    if st.session_state.ultimo_recibo:
+        with st.container(border=True):
+            st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
+            col_r1, col_r2 = st.columns([1.5, 1.0])
+            with col_r1:
+                st.code(st.session_state.ultimo_recibo["texto"], language="text")
+            with col_r2:
+                st.download_button(
+                    label="🖨️ Baixar / Imprimir Recibo",
+                    data=st.session_state.ultimo_recibo["texto"],
+                    file_name=f"recibo_{st.session_state.ultimo_recibo['numero']:06d}.txt",
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
+                st.write("")
+                if st.button("🆕 Iniciar Nova Venda", use_container_width=True):
+                    st.session_state.ultimo_recibo = None
+                    st.rerun()
 
     # Exibição do Recibo em destaque após finalizar
     if st.session_state.ultimo_recibo:
