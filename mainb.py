@@ -711,7 +711,7 @@ with st.sidebar:
             st.rerun()
 
     # Exibição do Recibo em destaque após finalizar
-               st.session_state.ultimo_recibo = {
+            st.session_state.ultimo_recibo = {
                 "numero": num_cupom_gerado,
                 "texto": gerar_texto_recibo(
                     num_cupom_gerado,
