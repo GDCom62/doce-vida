@@ -664,7 +664,7 @@ with st.sidebar:
         tem_itens = len(st.session_state.carrinho_novo) > 0
         pagamento_ok = (total_compra > 0) and (valor_restante <= 0.009) and (not excesso_eletronico)
 
-                if st.button("✅ FINALIZAR VENDA E GERAR RECIBO", type="primary", use_container_width=True, disabled=not (tem_itens and pagamento_ok)):
+        if st.button("✅ FINALIZAR VENDA E GERAR RECIBO", type="primary", use_container_width=True, disabled=not (tem_itens and pagamento_ok)):
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             
@@ -674,7 +674,7 @@ with st.sidebar:
                     "UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE id = ?", 
                     (item["Quantidade"], item["ID_Prod"])
                 )
-            
+
             formas_usadas = []
             if val_dinheiro > 0: formas_usadas.append(f"Dinheiro: R$ {val_dinheiro:.2f}")
             if val_pix > 0: formas_usadas.append(f"Pix: R$ {val_pix:.2f}")
