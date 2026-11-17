@@ -693,7 +693,6 @@ with st.sidebar:
             
             conn.commit()
             conn.close()
-            
             st.session_state.ultimo_recibo = {
                 "numero": num_cupom_gerado,
                 "texto": gerar_texto_recibo(
