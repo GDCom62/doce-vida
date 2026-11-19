@@ -194,9 +194,9 @@ def inicializar_banco_isolado():
     cursor.execute("SELECT COUNT(*) FROM funcionarios")
     if cursor.fetchone() == 0:
         cursor.execute(
-            "INSERT INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
-            ("Administrador", "admin", "admin123", "Gerente")
-        )
+    "INSERT OR IGNORE INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
+    ("Administrador", "admin", "admin123", "Gerente")
+)
         
     cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone() == 0:
