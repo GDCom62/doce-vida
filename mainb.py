@@ -234,7 +234,7 @@ if "ultimo_recibo" not in st.session_state:
 # ==============================================================================
 if not st.session_state.autenticado:
     exibir_logo_centralizado(largura=200)
-    st.markdown("<h2 style='text-align: center;'>🛒 Doce Vida PDV - Acesso </h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🛒 Acesso ao Sistema</h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
@@ -247,8 +247,8 @@ if not st.session_state.autenticado:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT nome, cargo FROM funcionarios WHERE usuario = ? AND senha = ?", 
-                    (user, password)
+                    "SELECT nome, cargo FROM funcionarios WHERE LOWER(usuario) = LOWER(?) AND senha = ?", 
+                    (user.strip(), password.strip())
                 )
                 user_data = cursor.fetchone()
                 conn.close()
