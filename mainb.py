@@ -181,7 +181,7 @@ def inicializar_banco_isolado():
         """)
         cursor.execute("DROP TABLE produtos_antigos")
 
-    # 4. Tabela de Histórico de Vendas
+     # 4. Tabela de Histórico de Vendas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vendas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,15 +192,11 @@ def inicializar_banco_isolado():
         forma_pagamento TEXT
     )""")
 
-    cursor.execute("SELECT COUNT(*) FROM funcionarios")
-    if cursor.fetchone() == 0:
-        cursor.execute(
     # Garante que o usuário padrão exista mesmo em bancos já criados
     cursor.execute(
-    "INSERT OR IGNORE INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
-    ("Administrador", "admin", "admin123", "Gerente")
+        "INSERT OR IGNORE INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
+        ("Administrador", "admin", "admin123", "Gerente")
     )
-
         
     cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone() == 0:
@@ -218,6 +214,7 @@ def inicializar_banco_isolado():
         
     conn.commit()
     conn.close()
+
 
 inicializar_banco_isolado()
 
