@@ -110,6 +110,7 @@ def gerar_relatorio_fechamento_dia(data_filtro, df_dia):
 def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
     
     # 1. Tabela de Funcionários
     cursor.execute("""
@@ -194,9 +195,12 @@ def inicializar_banco_isolado():
     cursor.execute("SELECT COUNT(*) FROM funcionarios")
     if cursor.fetchone() == 0:
         cursor.execute(
+    # Garante que o usuário padrão exista mesmo em bancos já criados
+    cursor.execute(
     "INSERT OR IGNORE INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
     ("Administrador", "admin", "admin123", "Gerente")
-)
+    )
+
         
     cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone() == 0:
