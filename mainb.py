@@ -230,7 +230,7 @@ if not st.session_state.autenticado:
             password = st.text_input("Senha", type="password")
             btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
             
-                        if btn_login:
+                if btn_login:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
                 cursor.execute(
