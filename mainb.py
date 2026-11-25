@@ -818,7 +818,7 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
             f_cargo = st.selectbox("Cargo Operacional", ["Operador de Caixa", "Gerente", "Almoxarife"])
             btn_func = st.form_submit_button("Salvar Novo Funcionário")
             
-                        if btn_func:
+            if btn_func:
                 if f_nome.strip() and f_user.strip() and f_senha.strip():
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
