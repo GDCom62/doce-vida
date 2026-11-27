@@ -234,7 +234,7 @@ def inicializar_banco_isolado():
         ("Administrador", "admin", "admin123", "Gerente")
     )
         
-        cursor.execute("SELECT COUNT(*) FROM produtos")
+    cursor.execute("SELECT COUNT(*) FROM produtos")
     if cursor.fetchone() == 0:
         exemplos = [
             ("78910001", "Grupo X - Bala Soft", "Xa - Bala Soft Maçã", 3.00, 6.50, 50, "2026-11-20", "2027-05-20"),
