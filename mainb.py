@@ -437,7 +437,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             with st.expander("🏷️ Aplicar desconto apenas neste item (Opcional)"):
                 desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
 
-        if btn_adicionar:
+                if btn_adicionar:
             cod_final = input_codigo.strip() if input_codigo.strip() else codigo_da_arvore
             
             if cod_final:
@@ -450,7 +450,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 prod_achado = cursor.fetchone()
                 conn.close()
                 
-                                if prod_achado:
+                if prod_achado:
                     pid, cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
                     qtd_no_carrinho = sum(
                         item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
@@ -475,6 +475,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                     st.error("❌ Código de barras ou produto não encontrado.")
             else:
                 st.warning("⚠️ Bipe um código de barras ou escolha um grupo e subitem na árvore.")
+
 
     # -------------------- PASSO 2: ITENS DA COMPRA --------------------
     st.markdown("### 2️⃣ Itens da Compra")
