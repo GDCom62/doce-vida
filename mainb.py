@@ -9,6 +9,62 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Doce Vida PDV - Gestão Integrada", page_icon="🛒", layout="wide")
 
 # ==============================================================================
+# ESTILO VISUAL SUAVE AOS OLHOS E BOTÕES DE ALTO CONTRASTE (ACESSIBILIDADE)
+# ==============================================================================
+st.markdown("""
+    <style>
+    /* Fundo principal suave (tom creme/areia claro para descanso visual) */
+    .stApp {
+        background-color: #F4F1EA !important;
+        color: #1F2937 !important;
+    }
+    /* Barra lateral em tom pastel suave */
+    [data-testid="stSidebar"] {
+        background-color: #E8E4D9 !important;
+        border-right: 1px solid #D1CBB8 !important;
+    }
+    /* Cartões (containers com borda) em branco leitoso para destacar os blocos */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+    }
+    /* Rótulos maiores e escuros para leitura fácil */
+    .stSelectbox label, .stTextInput label, .stNumberInput label, .stDateInput label {
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        color: #1E3D59 !important;
+    }
+    /* Botões Primários de Alto Contraste (Azul Profundo com Texto Branco) */
+    .stButton > button[kind="primary"], .stFormSubmitButton > button {
+        background-color: #1E3D59 !important;
+        color: #FFFFFF !important;
+        border: 2px solid #14293D !important;
+        min-height: 54px !important;
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        border-radius: 10px !important;
+    }
+    .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button:hover {
+        background-color: #14293D !important;
+        border-color: #0D1B2A !important;
+    }
+    /* Botões Secundários com Contraste Nítido */
+    .stButton > button[kind="secondary"], .stDownloadButton > button {
+        background-color: #FFFFFF !important;
+        color: #1E3D59 !important;
+        border: 2px solid #1E3D59 !important;
+        min-height: 48px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        border-radius: 10px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
 # CONFIGURAÇÃO UNIFICADA DO BANCO DE DADOS E GERADORES DE IMPRESSÃO
 # ==============================================================================
 if not os.path.exists("banco_dados"):
@@ -117,7 +173,6 @@ def inicializar_banco_isolado():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Tabela de Funcionários
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS funcionarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,7 +182,6 @@ def inicializar_banco_isolado():
         cargo TEXT NOT NULL
     )""")
     
-    # 2. Tabela de Clientes
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS clientes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,7 +190,6 @@ def inicializar_banco_isolado():
         telefone TEXT
     )""")
     
-    # 3. Tabela de Produtos (Vários códigos de barras por Produto Base + Custo + Data Compra + Validade)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,7 +204,6 @@ def inicializar_banco_isolado():
         data_validade TEXT
     )""")
 
-    # Migração automática para bancos existentes
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_prod = [col[1] for col in cursor.fetchall()]
     if "preco_custo" not in colunas_prod:
@@ -161,7 +213,6 @@ def inicializar_banco_isolado():
     if "data_validade" not in colunas_prod:
         cursor.execute("ALTER TABLE produtos ADD COLUMN data_validade TEXT")
 
-    # 4. Tabela de Histórico de Vendas (Com coluna de Acréscimo)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vendas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,19 +229,17 @@ def inicializar_banco_isolado():
     if "acrescimo_total" not in colunas_vendas:
         cursor.execute("ALTER TABLE vendas ADD COLUMN acrescimo_total REAL DEFAULT 0.0")
 
-    # Garante usuário padrão
     cursor.execute(
         "INSERT OR IGNORE INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)",
         ("Administrador", "admin", "admin123", "Gerente")
     )
         
-    # Produtos iniciais de exemplo (Mesmo produto base com vários códigos de barras)
-    cursor.execute("SELECT COUNT(*) FROM produtos")
-    if cursor.fetchone()[0] == 0:
+        cursor.execute("SELECT COUNT(*) FROM produtos")
+    if cursor.fetchone() == 0:
         exemplos = [
-            ("78910001", "Bala Soft", "Bala Soft Maçã", 3.00, 6.50, 50, "2026-11-20", "2027-05-20"),
-            ("78910002", "Bala Soft", "Bala Soft Banana", 3.00, 6.50, 40, "2026-11-20", "2027-05-20"),
-            ("78910003", "Bala Soft", "Bala Soft Uva", 3.00, 6.50, 35, "2026-11-20", "2027-05-20")
+            ("78910001", "Grupo X - Bala Soft", "Xa - Bala Soft Maçã", 3.00, 6.50, 50, "2026-11-20", "2027-05-20"),
+            ("78910002", "Grupo X - Bala Soft", "Xb - Bala Soft Banana", 3.00, 6.50, 40, "2026-11-20", "2027-05-20"),
+            ("78910003", "Grupo X - Bala Soft", "Xc - Bala Soft Uva", 3.00, 6.50, 35, "2026-11-20", "2027-05-20")
         ]
         cursor.executemany(
             """INSERT INTO produtos 
@@ -204,7 +253,6 @@ def inicializar_banco_isolado():
 
 inicializar_banco_isolado()
 
-# Gerenciamento de estado da sessão
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 if "user_nome" not in st.session_state:
@@ -221,32 +269,33 @@ if "ultimo_recibo" not in st.session_state:
 # ==============================================================================
 if not st.session_state.autenticado:
     exibir_logo_centralizado(largura=200)
-    st.markdown("<h2 style='text-align: center;'>🛒 Doce Vida PDV - Acesso</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #1E3D59;'>🛒 Doce Vida PDV - Acesso</h2>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
-        with st.form("login_sistema"):
-            user = st.text_input("Usuário de Acesso")
-            password = st.text_input("Senha", type="password")
-            btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
-            
-            if btn_login:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT nome, cargo FROM funcionarios WHERE LOWER(usuario) = LOWER(?) AND senha = ?", 
-                    (user.strip(), password.strip())
-                )
-                user_data = cursor.fetchone()
-                conn.close()
+        with st.container(border=True):
+            with st.form("login_sistema"):
+                user = st.text_input("Usuário de Acesso")
+                password = st.text_input("Senha", type="password")
+                btn_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
                 
-                if user_data:
-                    st.session_state.autenticado = True
-                    st.session_state.user_nome = user_data[0]
-                    st.session_state.user_cargo = user_data[1]
-                    st.rerun()
-                else:
-                    st.error("Usuário ou senha inválidos.")
+                if btn_login:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT nome, cargo FROM funcionarios WHERE LOWER(usuario) = LOWER(?) AND senha = ?", 
+                        (user.strip(), password.strip())
+                    )
+                    user_data = cursor.fetchone()
+                    conn.close()
+                    
+                    if user_data:
+                        st.session_state.autenticado = True
+                        st.session_state.user_nome = user_data
+                        st.session_state.user_cargo = user_data
+                        st.rerun()
+                    else:
+                        st.error("Usuário ou senha inválidos.")
     st.stop()
 
 # ==============================================================================
@@ -258,7 +307,7 @@ with st.sidebar:
         with col_s2:
             st.image("logo_empresa.png", use_container_width=True)
             
-    st.markdown("<h3 style='text-align: center;'>🧭 Menu Principal</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #1E3D59;'>🧭 Menu Principal</h3>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center;'>👤 <b>{st.session_state.user_nome}</b> ({st.session_state.user_cargo})</p>", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -298,43 +347,27 @@ with st.sidebar:
         st.rerun()
 
 # ==============================================================================
-# MÓDULO 1: PDV OTIMIZADO (ACRÉSCIMO, PRÉVIA DE RECIBO E MÚLTIPLOS CÓDIGOS)
+# MÓDULO 1: PDV OTIMIZADO (ÁRVORE DE CÓDIGOS X -> Xa, Xb, Xc E PRÉVIA DE RECIBO)
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.markdown("""
-        <style>
-        .stSelectbox label, .stTextInput label, .stNumberInput label {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            color: #1e3d59 !important;
-        }
-        .stButton button {
-            min-height: 52px !important;
-            font-size: 18px !important;
-            font-weight: bold !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h1 style='text-align: center; color: #1e3d59; font-size: 32px;'>🛒 Caixa - Frente de Loja</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1E3D59; font-size: 32px;'>🛒 Caixa - Frente de Loja</h1>", unsafe_allow_html=True)
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id,
                codigo_barras, 
-               COALESCE(NULLIF(produto_base, ''), nome) as base, 
+               COALESCE(NULLIF(produto_base, ''), nome) as grupo_mestre, 
                nome, 
                preco_venda, 
                estoque_atual,
                data_validade
         FROM produtos 
-        ORDER BY base ASC, nome ASC
+        ORDER BY grupo_mestre ASC, nome ASC
     """)
     lista_produtos_db = cursor.fetchall()
     conn.close()
 
-    # Alarme discreto no topo do PDV se houver produto vencido ou vencendo em 7 dias
     agora_br = datetime.utcnow() - timedelta(hours=3)
     hoje_pdv = agora_br.date()
     vencendo_pdv = []
@@ -351,18 +384,18 @@ if menu == "🛒 Frente de Caixa (PDV)":
     if vencendo_pdv:
         st.warning("⚠️ **Atenção Validade:** " + " | ".join(vencendo_pdv))
 
-    # Agrupa todos os códigos de barras/sabores dentro do mesmo Produto Base
-    produtos_agrupados = {}
-    for pid, cod, base, nome_comp, preco, est, val_str in lista_produtos_db:
-        if base not in produtos_agrupados:
-            produtos_agrupados[base] = []
+    # Monta a árvore de produtos: Grupo Mestre (X, Y, Z) -> Subitens com seus Códigos de Barras (Xa, Xb, Xc)
+    arvore_produtos = {}
+    for pid, cod, grupo, nome_comp, preco, est, val_str in lista_produtos_db:
+        if grupo not in arvore_produtos:
+            arvore_produtos[grupo] = []
         val_fmt = ""
         if val_str and str(val_str).strip() not in ["", "None", "NaT"]:
             try:
                 val_fmt = f" | Val: {datetime.strptime(str(val_str)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')}"
             except ValueError:
                 pass
-        produtos_agrupados[base].append({
+        arvore_produtos[grupo].append({
             "id": pid,
             "codigo": cod,
             "nome_completo": nome_comp,
@@ -371,26 +404,26 @@ if menu == "🛒 Frente de Caixa (PDV)":
             "validade_fmt": val_fmt
         })
 
-    # -------------------- PASSO 1: SELEÇÃO DO PRODUTO --------------------
-    st.markdown("### 1️⃣ Escolher Produto")
+    # -------------------- PASSO 1: ÁRVORE DE SELEÇÃO DO PRODUTO --------------------
+    st.markdown("### 1️⃣ Escolher Produto (Leitor ou Árvore de Grupos)")
     with st.container(border=True):
         col_sel1, col_sel2, col_sel3 = st.columns([1.1, 1.4, 1.7])
         with col_sel1:
-            input_codigo = st.text_input("🔫 Código de Barras:", key="pdv_cod_barras", placeholder="Bipe ou digite...")
+            input_codigo = st.text_input("🔫 Leitor (Cód. Barras):", key="pdv_cod_barras", placeholder="Bipe o código...")
         with col_sel2:
-            lista_bases = ["-- Selecione o Produto Base --"] + list(produtos_agrupados.keys())
-            base_escolhida = st.selectbox("Produto Base:", options=lista_bases, key="pdv_base")
+            lista_grupos = ["-- 1. Escolha o Grupo (X, Y, Z) --"] + list(arvore_produtos.keys())
+            grupo_escolhido = st.selectbox("Grupo / Produto Mestre:", options=lista_grupos, key="pdv_grupo")
         with col_sel3:
-            if base_escolhida != "-- Selecione o Produto Base --":
-                opcoes_itens = {
-                    f"{v['nome_completo']} [Cód: {v['codigo']}] — R$ {v['preco']:.2f}{v['validade_fmt']}": v["codigo"]
-                    for v in produtos_agrupados[base_escolhida]
+            if grupo_escolhido != "-- 1. Escolha o Grupo (X, Y, Z) --":
+                opcoes_filhos = {
+                    f"↳ {v['nome_completo']} [Cód: {v['codigo']}] — R$ {v['preco']:.2f}{v['validade_fmt']}": v["codigo"]
+                    for v in arvore_produtos[grupo_escolhido]
                 }
-                item_label = st.selectbox("Sabor / Item:", options=list(opcoes_itens.keys()), key="pdv_item")
-                codigo_da_lista = opcoes_itens[item_label]
+                filho_label = st.selectbox("2. Subitem / Código Vinculado:", options=list(opcoes_filhos.keys()), key="pdv_filho")
+                codigo_da_arvore = opcoes_filhos[filho_label]
             else:
-                st.selectbox("Sabor / Item:", options=["-- Escolha o produto base ao lado --"], disabled=True)
-                codigo_da_lista = None
+                st.selectbox("2. Subitem / Código Vinculado:", options=["-- Selecione o grupo ao lado --"], disabled=True)
+                codigo_da_arvore = None
 
         with st.form("form_lancar_item", clear_on_submit=True):
             col_q1, col_q2 = st.columns([1.0, 2.5])
@@ -405,7 +438,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
 
         if btn_adicionar:
-            cod_final = input_codigo.strip() if input_codigo.strip() else codigo_da_lista
+            cod_final = input_codigo.strip() if input_codigo.strip() else codigo_da_arvore
             
             if cod_final:
                 conn = sqlite3.connect(DB_NAME)
@@ -417,7 +450,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 prod_achado = cursor.fetchone()
                 conn.close()
                 
-                if prod_achado:
+                                if prod_achado:
                     pid, cod_barras, nome_prod, v_unit, estoque_disp = prod_achado
                     qtd_no_carrinho = sum(
                         item["Quantidade"] for item in st.session_state.carrinho_novo if item["Código"] == cod_barras
@@ -439,11 +472,11 @@ if menu == "🛒 Frente de Caixa (PDV)":
                     else:
                         st.warning(f"⚠️ Estoque insuficiente. Disponível: {estoque_disp} un.")
                 else:
-                    st.error("❌ Produto não encontrado.")
+                    st.error("❌ Código de barras ou produto não encontrado.")
             else:
-                st.warning("⚠️ Bipe um código de barras ou selecione um produto na lista.")
+                st.warning("⚠️ Bipe um código de barras ou escolha um grupo e subitem na árvore.")
 
-       # -------------------- PASSO 2: ITENS DA COMPRA --------------------
+    # -------------------- PASSO 2: ITENS DA COMPRA --------------------
     st.markdown("### 2️⃣ Itens da Compra")
     with st.container(border=True):
         if st.session_state.carrinho_novo:
@@ -500,9 +533,9 @@ if menu == "🛒 Frente de Caixa (PDV)":
         total_compra = max(0.0, subtotal - descontos_itens - desc_total_venda + acrescimo_venda)
 
         st.markdown(
-            f"<div style='background-color:#e8f4f8; padding:18px; border-radius:10px; border: 2px solid #1e3d59; text-align:center; margin-bottom:20px;'>"
-            f"<span style='font-size:20px; color:#1e3d59; font-weight:bold;'>TOTAL A PAGAR</span><br>"
-            f"<span style='font-size:42px; color:#0b5394; font-weight:900;'>R$ {total_compra:.2f}</span>"
+            f"<div style='background-color:#E6EEF5; padding:18px; border-radius:10px; border: 2px solid #1E3D59; text-align:center; margin-bottom:20px;'>"
+            f"<span style='font-size:20px; color:#1E3D59; font-weight:bold;'>TOTAL A PAGAR</span><br>"
+            f"<span style='font-size:42px; color:#1E3D59; font-weight:900;'>R$ {total_compra:.2f}</span>"
             f"</div>", 
             unsafe_allow_html=True
         )
@@ -542,15 +575,15 @@ if menu == "🛒 Frente de Caixa (PDV)":
         with col_res2:
             if troco > 0:
                 st.markdown(
-                    f"<div style='background-color:#fff3cd; padding:12px; border-radius:8px; border: 2px solid #ffc107; text-align:center;'>"
-                    f"<span style='font-size:18px; font-weight:bold; color:#856404;'>TROCO A DEVOLVER: R$ {troco:.2f}</span>"
+                    f"<div style='background-color:#FFF3CD; padding:12px; border-radius:8px; border: 2px solid #D97706; text-align:center;'>"
+                    f"<span style='font-size:18px; font-weight:bold; color:#92400E;'>TROCO A DEVOLVER: R$ {troco:.2f}</span>"
                     f"</div>", 
                     unsafe_allow_html=True
                 )
 
-        # PRÉVIA DO CUPOM ANTES DE IMPRIMIR / FINALIZAR
+        # PRÉVIA DA NOTA ANTES DE IMPRIMIR / FINALIZAR
         if st.session_state.carrinho_novo:
-            with st.expander("👁️ Visualizar Prévia da Nota antes de Finalizar / Imprimir", expanded=False):
+            with st.expander("👁️ Visualizar Prévia da Nota antes de Finalizar / Imprimir", expanded=True):
                 texto_previa = gerar_texto_recibo(
                     0, agora_br.strftime("%d/%m/%Y %H:%M"), st.session_state.carrinho_novo,
                     subtotal, (descontos_itens + desc_total_venda), acrescimo_venda, total_compra,
@@ -595,26 +628,26 @@ if menu == "🛒 Frente de Caixa (PDV)":
             st.session_state.carrinho_novo = []
             st.rerun()
 
-    # Exibição do Recibo Final com Botão Verde de Impressão Direta
+        # Exibição do Recibo Final com Prévia e Botão Verde de Alto Contraste
     if st.session_state.ultimo_recibo:
         with st.container(border=True):
             st.success(f"🎉 Venda #{st.session_state.ultimo_recibo['numero']:06d} concluída com sucesso!")
             col_r1, col_r2 = st.columns([1.5, 1.0])
             with col_r1:
-                st.write("**Pré-visualização do Comprovante:**")
+                st.write("**Pré-visualização do Comprovante para Impressão:**")
                 st.code(st.session_state.ultimo_recibo["texto"], language="text")
             with col_r2:
                 texto_rec_esc = st.session_state.ultimo_recibo["texto"].replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
                 html_imp_recibo = f"""
                 <button onclick="imprimirReciboVenda()" style="
                     width: 100%;
-                    background-color: #28a745;
-                    color: white;
-                    border: none;
+                    background-color: #198754;
+                    color: #FFFFFF;
+                    border: 2px solid #0F5132;
                     padding: 16px 20px;
                     font-size: 18px;
-                    font-weight: bold;
-                    border-radius: 8px;
+                    font-weight: 800;
+                    border-radius: 10px;
                     cursor: pointer;
                     margin-bottom: 10px;
                 ">
@@ -627,7 +660,6 @@ if menu == "🛒 Frente de Caixa (PDV)":
                         alert('Por favor, permita pop-ups neste site para imprimir.');
                         return;
                     }}
-                                        }}
                     janela.document.write('<html><head><title>Recibo de Venda</title>');
                     janela.document.write('<style>body {{ font-family: monospace; font-size: 13px; margin: 10px; white-space: pre; }}</style>');
                     janela.document.write('</head><body>');
@@ -642,7 +674,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 }}
                 </script>
                 """
-                components.html(html_imp_recibo, height=70)
+                components.html(html_imp_recibo, height=72)
 
                 st.download_button(
                     label="📥 Baixar Recibo (.txt)",
@@ -657,17 +689,17 @@ if menu == "🛒 Frente de Caixa (PDV)":
                     st.rerun()
 
 # ==============================================================================
-# MÓDULO 2: ALMOXARIFADO / ESTOQUE (CADASTRO SIMPLIFICADO + CUSTO + VALIDADE)
+# MÓDULO 2: ALMOXARIFADO EM ÁRVORE (GRUPO X -> CÓDIGOS Xa, Xb, Xc)
 # ==============================================================================
 elif menu == "📦 Almoxarifado / Estoque":
-    st.header("📦 Gestão de Estoque, Custos e Validade")
+    st.header("📦 Árvore de Produtos, Custos e Validade")
     
     conn = sqlite3.connect(DB_NAME)
     df_almoxarifado = pd.read_sql_query("""
         SELECT id AS [ID], 
-               codigo_barras AS [Cód. Barras], 
-               produto_base AS [Produto Base],
-               nome AS [Nome do Produto],
+               produto_base AS [Grupo / Produto Mestre (X, Y, Z)],
+               codigo_barras AS [Cód. Barras Filho (Xa, Xb)], 
+               nome AS [Descrição do Subitem],
                preco_custo AS [Preço Custo (R$)],
                preco_venda AS [Preço Venda (R$)], 
                estoque_atual AS [Estoque],
@@ -678,7 +710,7 @@ elif menu == "📦 Almoxarifado / Estoque":
     """, conn)
     conn.close()
 
-    # Alarme de vencimento (próximos 7 dias ou vencidos)
+    # Alarme de vencimento
     if not df_almoxarifado.empty:
         agora_br = datetime.utcnow() - timedelta(hours=3)
         hoje = agora_br.date()
@@ -690,9 +722,9 @@ elif menu == "📦 Almoxarifado / Estoque":
                     dt_val = datetime.strptime(str(val_str)[:10], "%Y-%m-%d").date()
                     dias_restantes = (dt_val - hoje).days
                     if dias_restantes < 0:
-                        alertas_validade.append(f"🔴 **VENCIDO há {abs(dias_restantes)} dia(s):** {row['Nome do Produto']} (Cód: {row['Cód. Barras']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
+                        alertas_validade.append(f"🔴 **VENCIDO há {abs(dias_restantes)} dia(s):** {row['Descrição do Subitem']} (Cód: {row['Cód. Barras Filho (Xa, Xb)']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
                     elif dias_restantes <= 7:
-                        alertas_validade.append(f"🟡 **VENCE EM {dias_restantes} DIA(S):** {row['Nome do Produto']} (Cód: {row['Cód. Barras']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
+                        alertas_validade.append(f"🟡 **VENCE EM {dias_restantes} DIA(S):** {row['Descrição do Subitem']} (Cód: {row['Cód. Barras Filho (Xa, Xb)']}) | Val: {dt_val.strftime('%d/%m/%Y')}")
                 except ValueError:
                     pass
         
@@ -702,17 +734,45 @@ elif menu == "📦 Almoxarifado / Estoque":
                 for aviso in alertas_validade:
                     st.markdown(aviso)
 
-    st.subheader("Inventário Físico da Loja")
-    st.dataframe(df_almoxarifado, use_container_width=True, hide_index=True)
+    # Visualização em Árvore por Grupo Mestre
+    st.subheader("🌳 Árvore de Códigos Cadastrados")
+    if not df_almoxarifado.empty:
+        grupos_unicos = df_almoxarifado["Grupo / Produto Mestre (X, Y, Z)"].unique()
+        for grp in grupos_unicos:
+            df_grp = df_almoxarifado[df_almoxarifado["Grupo / Produto Mestre (X, Y, Z)"] == grp]
+            with st.expander(f"📁 **{grp}** ({len(df_grp)} código(s) de barras vinculado(s))", expanded=False):
+                st.dataframe(
+                    df_grp.drop(columns=["Grupo / Produto Mestre (X, Y, Z)"]),
+                    use_container_width=True,
+                    hide_index=True
+                )
+    else:
+        st.info("Nenhum grupo de produtos cadastrado ainda.")
     
-    col_alm1, col_alm2 = st.columns([1.4, 1.0])
+    col_alm1, col_alm2 = st.columns([1.5, 1.0])
     
     with col_alm1:
-        with st.expander("➕ Cadastrar / Abastecer Produto", expanded=True):
+        with st.container(border=True):
+            st.subheader("➕ Vincular Código de Barras a um Grupo (Árvore)")
+            grupos_existentes = sorted(list(df_almoxarifado["Grupo / Produto Mestre (X, Y, Z)"].unique())) if not df_almoxarifado.empty else []
+            
+            modo_grupo = st.radio(
+                "Como deseja organizar o Grupo Mestre?",
+                ["Selecionar Grupo já existente (Ex: X, Y, Z)", "Criar um Novo Grupo Mestre"],
+                horizontal=True
+            )
+            
             with st.form("entrada_produtos"):
-                c_barras = st.text_input("Código de Barras (Cada sabor/item tem o seu código)")
-                c_base = st.text_input("Produto Base / Linha (Ex: Bala Soft)")
-                c_nome = st.text_input("Nome do Produto (Ex: Bala Soft Maçã, Bala Soft Banana)")
+                if modo_grupo == "Selecionar Grupo já existente (Ex: X, Y, Z)" and grupos_existentes:
+                    c_base = st.selectbox("1. Escolha o Grupo Mestre:", options=grupos_existentes)
+                else:
+                    c_base = st.text_input("1. Nome do Novo Grupo Mestre (Ex: Grupo X - Bala Soft):")
+                
+                col_cb1, col_cb2 = st.columns(2)
+                with col_cb1:
+                    c_barras = st.text_input("2. Código de Barras Filho (Xa, Xb, Xc):")
+                with col_cb2:
+                    c_nome = st.text_input("3. Nome / Sabor deste Código (Ex: Xa - Maçã):")
                 
                 col_pq1, col_pq2, col_pq3 = st.columns(3)
                 with col_pq1:
@@ -728,7 +788,7 @@ elif menu == "📦 Almoxarifado / Estoque":
                 with col_dt2:
                     c_val = st.date_input("Data de Validade", value=datetime.now().date() + timedelta(days=90), format="DD/MM/YYYY")
                     
-                btn_salvar_estoque = st.form_submit_button("Confirmar Entrada no Estoque", type="primary", use_container_width=True)
+                btn_salvar_estoque = st.form_submit_button("✅ Salvar Código na Árvore do Grupo", type="primary", use_container_width=True)
                 
                 if btn_salvar_estoque:
                     if c_barras.strip() and c_base.strip() and c_nome.strip() and c_preco > 0:
@@ -751,17 +811,18 @@ elif menu == "📦 Almoxarifado / Estoque":
                         ))
                         conn.commit()
                         conn.close()
-                        st.success(f"📦 '{c_nome.strip()}' salvo no estoque com sucesso!")
+                        st.success(f"📦 Código '{c_barras.strip()}' ({c_nome.strip()}) vinculado ao grupo '{c_base.strip()}'!")
                         st.rerun()
                     else:
-                        st.error("⚠️ Preencha Código de Barras, Produto Base, Nome do Produto e Preço de Venda.")
+                        st.error("⚠️ Preencha Grupo Mestre, Código de Barras, Nome do Subitem e Preço de Venda.")
 
-    with col_alm2:
-        with st.expander("📉 Alertas de Estoque Baixo", expanded=True):
+        with col_alm2:
+        with st.container(border=True):
+            st.subheader("📉 Alertas de Estoque Baixo")
             conn = sqlite3.connect(DB_NAME)
             df_critico = pd.read_sql_query("""
                 SELECT codigo_barras AS [Código], 
-                       nome AS [Produto], 
+                       nome AS [Subitem], 
                        estoque_atual AS [Qtd Atual], 
                        estoque_minimo AS [Mínimo] 
                 FROM produtos 
@@ -784,57 +845,59 @@ elif menu == "👥 Cadastros (Clientes/Equipe)":
     tab_clientes, tab_funcionarios = st.tabs(["👥 Clientes Fidelidade", "🔐 Funcionários & Cargos"])
     
     with tab_clientes:
-        st.subheader("Cadastro de Novo Cliente")
-        with st.form("form_cliente"):
-            cl_nome = st.text_input("Nome Completo")
-            cl_cpf = st.text_input("CPF")
-            cl_tel = st.text_input("Telefone de Contato")
-            btn_cliente = st.form_submit_button("Cadastrar Cliente")
-            
-            if btn_cliente:
-                if cl_nome.strip() and cl_cpf.strip():
-                    conn = sqlite3.connect(DB_NAME)
-                    cursor = conn.cursor()
-                    try:
-                        cursor.execute(
-                            "INSERT INTO clientes (nome, cpf, telefone) VALUES (?, ?, ?)", 
-                            (cl_nome.strip(), cl_cpf.strip(), cl_tel.strip())
-                        )
-                        conn.commit()
-                        st.success(f"🎉 Cliente '{cl_nome}' cadastrado com sucesso!")
-                    except sqlite3.IntegrityError:
-                        st.error("❌ Erro: Este CPF já está cadastrado no sistema.")
-                    finally:
-                        conn.close()
-                else:
-                    st.error("⚠️ Nome e CPF são obrigatórios.")
+        with st.container(border=True):
+            st.subheader("Cadastro de Novo Cliente")
+            with st.form("form_cliente"):
+                cl_nome = st.text_input("Nome Completo")
+                cl_cpf = st.text_input("CPF")
+                cl_tel = st.text_input("Telefone de Contato")
+                btn_cliente = st.form_submit_button("Cadastrar Cliente")
+                
+                if btn_cliente:
+                    if cl_nome.strip() and cl_cpf.strip():
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute(
+                                "INSERT INTO clientes (nome, cpf, telefone) VALUES (?, ?, ?)", 
+                                (cl_nome.strip(), cl_cpf.strip(), cl_tel.strip())
+                            )
+                            conn.commit()
+                            st.success(f"🎉 Cliente '{cl_nome}' cadastrado com sucesso!")
+                        except sqlite3.IntegrityError:
+                            st.error("❌ Erro: Este CPF já está cadastrado no sistema.")
+                        finally:
+                            conn.close()
+                    else:
+                        st.error("⚠️ Nome e CPF são obrigatórios.")
                     
     with tab_funcionarios:
-        st.subheader("Controle de Credenciais de Acesso")
-        with st.form("form_func"):
-            f_nome = st.text_input("Nome do Colaborador")
-            f_user = st.text_input("Usuário para Login")
-            f_senha = st.text_input("Senha de Acesso", type="password")
-            f_cargo = st.selectbox("Cargo Operacional", ["Operador de Caixa", "Gerente", "Almoxarife"])
-            btn_func = st.form_submit_button("Salvar Novo Funcionário")
-            
-            if btn_func:
-                if f_nome.strip() and f_user.strip() and f_senha.strip():
-                    conn = sqlite3.connect(DB_NAME)
-                    cursor = conn.cursor()
-                    try:
-                        cursor.execute(
-                            "INSERT INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)", 
-                            (f_nome.strip(), f_user.strip(), f_senha.strip(), f_cargo)
-                        )
-                        conn.commit()
-                        st.success(f"🔐 Credenciais criadas para {f_nome} ({f_cargo})!")
-                    except sqlite3.IntegrityError:
-                        st.error("❌ Erro: Este nome de usuário já está em uso.")
-                    finally:
-                        conn.close()
-                else:
-                    st.error("⚠️ Todos os campos de credenciais são obrigatórios.")
+        with st.container(border=True):
+            st.subheader("Controle de Credenciais de Acesso")
+            with st.form("form_func"):
+                f_nome = st.text_input("Nome do Colaborador")
+                f_user = st.text_input("Usuário para Login")
+                f_senha = st.text_input("Senha de Acesso", type="password")
+                f_cargo = st.selectbox("Cargo Operacional", ["Operador de Caixa", "Gerente", "Almoxarife"])
+                btn_func = st.form_submit_button("Salvar Novo Funcionário")
+                
+                if btn_func:
+                    if f_nome.strip() and f_user.strip() and f_senha.strip():
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute(
+                                "INSERT INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)", 
+                                (f_nome.strip(), f_user.strip(), f_senha.strip(), f_cargo)
+                            )
+                            conn.commit()
+                            st.success(f"🔐 Credenciais criadas para {f_nome} ({f_cargo})!")
+                        except sqlite3.IntegrityError:
+                            st.error("❌ Erro: Este nome de usuário já está em uso.")
+                        finally:
+                            conn.close()
+                    else:
+                        st.error("⚠️ Todos os campos de credenciais são obrigatórios.")
 
 # ==============================================================================
 # MÓDULO 4: RELATÓRIOS DE VENDAS E FECHAMENTO DIÁRIO PARA IMPRESSÃO
@@ -908,13 +971,13 @@ elif menu == "📊 Relatórios de Vendas":
             html_impressao = f"""
             <button onclick="imprimirRelatorio()" style="
                 width: 100%;
-                background-color: #28a745;
-                color: white;
-                border: none;
+                background-color: #198754;
+                color: #FFFFFF;
+                border: 2px solid #0F5132;
                 padding: 14px 20px;
                 font-size: 18px;
-                font-weight: bold;
-                border-radius: 8px;
+                font-weight: 800;
+                border-radius: 10px;
                 cursor: pointer;
             ">
                 🖨️ IMPRIMIR RELATÓRIO
@@ -940,7 +1003,7 @@ elif menu == "📊 Relatórios de Vendas":
             }}
             </script>
             """
-            components.html(html_impressao, height=65)
+            components.html(html_impressao, height=68)
 
         with col_f2:
             st.write("**Pré-visualização do Comprovante de Fechamento:**")
@@ -970,5 +1033,6 @@ elif menu == "📊 Relatórios de Vendas":
         st.dataframe(df_vendas_todas, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma venda realizada até o momento.")
+
 
 
