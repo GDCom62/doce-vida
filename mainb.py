@@ -818,24 +818,24 @@ elif menu == "📦 Almoxarifado / Estoque":
                         st.error("⚠️ Preencha Grupo Mestre, Código de Barras, Nome do Subitem e Preço de Venda.")
 
         with col_alm2:
-        with st.container(border=True):
-            st.subheader("📉 Alertas de Estoque Baixo")
-            conn = sqlite3.connect(DB_NAME)
-            df_critico = pd.read_sql_query("""
-                SELECT codigo_barras AS [Código], 
-                       nome AS [Subitem], 
-                       estoque_atual AS [Qtd Atual], 
-                       estoque_minimo AS [Mínimo] 
-                FROM produtos 
-                WHERE estoque_atual <= estoque_minimo
-            """, conn)
-            conn.close()
+            with st.container(border=True):
+                st.subheader("📉 Alertas de Estoque Baixo")
+                conn = sqlite3.connect(DB_NAME)
+                df_critico = pd.read_sql_query("""
+                    SELECT codigo_barras AS [Código], 
+                           nome AS [Subitem], 
+                           estoque_atual AS [Qtd Atual], 
+                           estoque_minimo AS [Mínimo] 
+                    FROM produtos 
+                    WHERE estoque_atual <= estoque_minimo
+                """, conn)
+                conn.close()
             
-            if not df_critico.empty:
-                st.warning("Itens precisando de reposição:")
-                st.dataframe(df_critico, use_container_width=True, hide_index=True)
-            else:
-                st.success("✅ Níveis de estoque adequados!")
+                if not df_critico.empty:
+                    st.warning("Itens precisando de reposição:")
+                    st.dataframe(df_critico, use_container_width=True, hide_index=True)
+                else:
+                    st.success("✅ Níveis de estoque adequados!")
 
 # ==============================================================================
 # MÓDULO 3: CADASTROS (CLIENTES E EQUIPE)
