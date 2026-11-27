@@ -437,7 +437,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             with st.expander("🏷️ Aplicar desconto apenas neste item (Opcional)"):
                 desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
 
-            if btn_adicionar:
+        if btn_adicionar:
             cod_final = input_codigo.strip() if input_codigo.strip() else codigo_da_arvore
             
             if cod_final:
