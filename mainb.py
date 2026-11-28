@@ -350,7 +350,7 @@ with st.sidebar:
 # MÓDULO 1: PDV OTIMIZADO (ÁRVORE DE CÓDIGOS X -> Xa, Xb, Xc E PRÉVIA DE RECIBO)
 # ==============================================================================
 if menu == "🛒 Frente de Caixa (PDV)":
-    st.markdown("<h1 style='text-align: center; color: #1E3D59; font-size: 32px;'>🛒 Caixa - Frente de Loja</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1E3D59; font-size: 32px;'>🛒 Caixa </h1>", unsafe_allow_html=True)
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -405,13 +405,13 @@ if menu == "🛒 Frente de Caixa (PDV)":
         })
 
     # -------------------- PASSO 1: ÁRVORE DE SELEÇÃO DO PRODUTO --------------------
-    st.markdown("### 1️⃣ Escolher Produto (Leitor ou Árvore de Grupos)")
+    st.markdown("### 1️⃣ Escolher Produto")
     with st.container(border=True):
         col_sel1, col_sel2, col_sel3 = st.columns([1.1, 1.4, 1.7])
         with col_sel1:
             input_codigo = st.text_input("🔫 Leitor (Cód. Barras):", key="pdv_cod_barras", placeholder="Bipe o código...")
         with col_sel2:
-            lista_grupos = ["-- 1. Escolha o Grupo (X, Y, Z) --"] + list(arvore_produtos.keys())
+            lista_grupos = ["-- 1. Escolha o Grupo --"] + list(arvore_produtos.keys())
             grupo_escolhido = st.selectbox("Grupo / Produto Mestre:", options=lista_grupos, key="pdv_grupo")
         with col_sel3:
             if grupo_escolhido != "-- 1. Escolha o Grupo (X, Y, Z) --":
@@ -434,7 +434,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
                 st.write("")
                 btn_adicionar = st.form_submit_button("➕ ADICIONAR NA COMPRA", type="primary", use_container_width=True)
             
-            with st.expander("🏷️ Aplicar desconto apenas neste item (Opcional)"):
+            with st.expander("🏷️ Aplicar desconto"):
                 desconto_item = st.number_input("Valor do Desconto no Item (R$):", min_value=0.0, value=0.0, step=0.50, format="%.2f")
 
         if btn_adicionar:
@@ -759,7 +759,7 @@ elif menu == "📦 Almoxarifado / Estoque":
             
             modo_grupo = st.radio(
                 "Como deseja organizar o Grupo Mestre?",
-                ["Selecionar Grupo já existente (Ex: X, Y, Z)", "Criar um Novo Grupo Mestre"],
+                ["Selecionar Grupo já existente", "Criar um Novo Grupo Mestre"],
                 horizontal=True
             )
             
@@ -771,9 +771,9 @@ elif menu == "📦 Almoxarifado / Estoque":
                 
                 col_cb1, col_cb2 = st.columns(2)
                 with col_cb1:
-                    c_barras = st.text_input("2. Código de Barras Filho (Xa, Xb, Xc):")
+                    c_barras = st.text_input("2. Código de Barras Filho):")
                 with col_cb2:
-                    c_nome = st.text_input("3. Nome / Sabor deste Código (Ex: Xa - Maçã):")
+                    c_nome = st.text_input("3. Nome / Sabor deste Código:")
                 
                 col_pq1, col_pq2, col_pq3 = st.columns(3)
                 with col_pq1:
@@ -840,7 +840,7 @@ elif menu == "📦 Almoxarifado / Estoque":
 # ==============================================================================
 # MÓDULO 3: CADASTROS (CLIENTES E EQUIPE)
 # ==============================================================================
-elif menu == "👥 Cadastros (Clientes/Equipe)":
+elif menu == "👥 Cadastros":
     st.header("Controle de Clientes e Funcionários de Acesso")
     
     tab_clientes, tab_funcionarios = st.tabs(["👥 Clientes Fidelidade", "🔐 Funcionários & Cargos"])
