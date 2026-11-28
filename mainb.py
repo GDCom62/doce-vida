@@ -414,7 +414,7 @@ if menu == "🛒 Frente de Caixa (PDV)":
             lista_grupos = ["-- 1. Escolha o Grupo --"] + list(arvore_produtos.keys())
             grupo_escolhido = st.selectbox("Grupo / Produto Mestre:", options=lista_grupos, key="pdv_grupo")
         with col_sel3:
-            if grupo_escolhido != "-- 1. Escolha o Grupo (X, Y, Z) --":
+            if grupo_escolhido in arvore_produtos:
                 opcoes_filhos = {
                     f"↳ {v['nome_completo']} [Cód: {v['codigo']}] — R$ {v['preco']:.2f}{v['validade_fmt']}": v["codigo"]
                     for v in arvore_produtos[grupo_escolhido]
